@@ -1,0 +1,128 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 customtkinter qrcode pillow
+        
+    - name: Lint
+      run: |
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+  build:
+    needs: lint
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller customtkinter qrcode pillow
+
+    - name: Build with PyInstaller (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        CTK_PATH=$(python -c "import customtkinter; import os; print(os.path.dirname(customtkinter.__file__))")
+        pyinstaller --noconfirm --windowed --name "QR Generator Pro" --icon=assets/icon.icns --add-data "$CTK_PATH:customtkinter/" main.py
+
+    - name: Build with PyInstaller (Linux)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        CTK_PATH=$(python -c "import customtkinter; import os; print(os.path.dirname(customtkinter.__file__))")
+        pyinstaller --noconfirm --windowed --name "QR Generator Pro" --add-data "$CTK_PATH:customtkinter/" main.py
+
+    - name: Build with PyInstaller (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        $CTK_PATH = python -c "import customtkinter; import os; print(os.path.dirname(customtkinter.__file__))"
+        pyinstaller --noconfirm --windowed --name "QR Generator Pro" --add-data "$CTK_PATH;customtkinter/" main.py
+
+    - name: Upload Artifact (macOS)
+      if: matrix.os == 'macos-latest'
+      uses: actions/upload-artifact@v4
+      with:
+        name: QR-Generator-Pro-macOS
+        path: dist/QR Generator Pro.app
+
+    - name: Upload Artifact (Windows)
+      if: matrix.os == 'windows-latest'
+      uses: actions/upload-artifact@v4
+      with:
+        name: QR-Generator-Pro-Windows
+        path: dist/QR Generator Pro.exe
+
+    - name: Upload Artifact (Linux)
+      if: matrix.os == 'ubuntu-latest'
+      uses: actions/upload-artifact@v4
+      with:
+        name: QR-Generator-Pro-Linux
+        path: dist/QR Generator Pro
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          
+      - name: Prepare Release Assets
+        run: |
+          cd artifacts
+          # Zip macOS App (required for .app directories)
+          cd QR-Generator-Pro-macOS
+          zip -r ../QR-Generator-Pro-macOS.zip "QR Generator Pro.app"
+          cd ..
+          
+          # Zip Linux and Windows 
+          cd QR-Generator-Pro-Windows
+          zip -r ../QR-Generator-Pro-Windows.zip "QR Generator Pro.exe"
+          cd ..
+          
+          cd QR-Generator-Pro-Linux
+          zip -r ../QR-Generator-Pro-Linux.zip "QR Generator Pro"
+          cd ..
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/QR-Generator-Pro-macOS.zip
+            artifacts/QR-Generator-Pro-Windows.zip
+            artifacts/QR-Generator-Pro-Linux.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
