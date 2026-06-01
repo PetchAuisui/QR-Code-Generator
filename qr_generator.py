@@ -1,38 +1,33 @@
-"""
-QR CODE GENERATOR — LUXE EDITION
-pip install qrcode[pil] pillow
-"""
-
-import tkinter as tk
-from tkinter import filedialog, messagebox, colorchooser
+import os
+import json
+from datetime import datetime
+from tkinter import colorchooser, filedialog, messagebox
+import customtkinter as ctk
 import qrcode
 from qrcode.image.styledpil import StyledPilImage
 from qrcode.image.styles.moduledrawers import (
     RoundedModuleDrawer, CircleModuleDrawer, SquareModuleDrawer,
-    GappedSquareModuleDrawer, VerticalBarsDrawer, HorizontalBarsDrawer,
+    GappedSquareModuleDrawer,
 )
-from PIL import Image, ImageTk
-import os, subprocess, tempfile
+from PIL import Image
 
-# ── Palette ─────────────────────────────────────────────────────────
-BG       = "#0D0D12"
-PANEL    = "#13131A"
-CARD     = "#1C1C27"
-CARD2    = "#232330"
-ACCENT   = "#8B5CF6"
-ACCENT_H = "#A78BFA"
-ACCENT_D = "#6D28D9"
-TEAL     = "#2DD4BF"
-TEAL_D   = "#0F766E"
-TEXT     = "#F1EEF9"
-TEXT2    = "#7C78A0"
-TEXT3    = "#4A4868"
-BORDER   = "#2A2A3D"
-SUCCESS  = "#22C55E"
-WARN     = "#F59E0B"
-ERR      = "#EF4444"
+ctk.set_appearance_mode("Light")
+ctk.set_default_color_theme("blue")
 
 RESAMPLE = getattr(Image, "Resampling", Image).LANCZOS
+HISTORY_FILE = "history.json"
+HISTORY_DIR = "history_images"
+os.makedirs(HISTORY_DIR, exist_ok=True)
+
+BG       = "#EEF2FF"  # page background
+CARD_BG  = "#FFFFFF"
+BORDER   = "#E2E8F0"
+BLUE     = "#2563EB"
+BLUE_DK  = "#1D4ED8"
+BLUE_LT  = "#EEF2FF"
+TEXT_DK  = "#1E293B"
+TEXT_MD  = "#475569"
+TEXT_LT  = "#94A3B8"
 
 
 def hex_rgb(h):
@@ -40,367 +35,718 @@ def hex_rgb(h):
     return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
 
 
-def pill(canvas, x1, y1, x2, y2, r, fill):
-    canvas.create_arc(x1, y1, x1+2*r, y1+2*r, start=90,  extent=90, fill=fill, outline=fill)
-    canvas.create_arc(x2-2*r, y1, x2, y1+2*r, start=0,   extent=90, fill=fill, outline=fill)
-    canvas.create_arc(x1, y2-2*r, x1+2*r, y2, start=180, extent=90, fill=fill, outline=fill)
-    canvas.create_arc(x2-2*r, y2-2*r, x2, y2, start=270, extent=90, fill=fill, outline=fill)
-    canvas.create_rectangle(x1+r, y1, x2-r, y2, fill=fill, outline=fill)
-    canvas.create_rectangle(x1, y1+r, x2, y2-r, fill=fill, outline=fill)
+# ─── Custom Pill Segmented Button ───────────────────────────────────────────
+class PillSegButton(ctk.CTkFrame):
+    def __init__(self, master, values, command=None, height=40, **kwargs):
+        super().__init__(master, fg_color=CARD_BG, corner_radius=60,
+                         border_width=1, border_color=BORDER, **kwargs)
+        self.command = command
+        self.buttons = {}
+        self._value = ctk.StringVar(value=values[0])
+        for i, v in enumerate(values):
+            self.grid_columnconfigure(i, weight=1)
+        self.grid_rowconfigure(0, weight=1)
+        for i, v in enumerate(values):
+            b = ctk.CTkButton(
+                self, text=v, height=height - 8,
+                fg_color="transparent", text_color=TEXT_MD,
+                hover_color="#F1F5F9", corner_radius=60,
+                font=ctk.CTkFont(size=13),
+                command=lambda val=v: self.set(val)
+            )
+            b.grid(row=0, column=i, padx=4, pady=4, sticky="ew")
+            self.buttons[v] = b
+        self._refresh(values[0])
+
+    def set(self, value):
+        self._value.set(value)
+        self._refresh(value)
+        if self.command:
+            self.command(value)
+
+    def get(self):
+        return self._value.get()
+
+    def _refresh(self, selected):
+        for v, b in self.buttons.items():
+            if v == selected:
+                b.configure(fg_color=BLUE, text_color="#FFFFFF",
+                             hover_color=BLUE_DK,
+                             font=ctk.CTkFont(size=13, weight="bold"))
+            else:
+                b.configure(fg_color="transparent", text_color=TEXT_MD,
+                             hover_color="#F1F5F9",
+                             font=ctk.CTkFont(size=13))
 
 
-class PillButton(tk.Canvas):
-    def __init__(self, parent, text, cmd=None,
-                 w=200, h=48, r=12,
-                 bg=ACCENT, hover=ACCENT_H, fg=TEXT, fs=11, **kw):
-        super().__init__(parent, width=w, height=h,
-                         bg=BG, highlightthickness=0, cursor="hand2")
-        self.text, self.cmd, self.r = text, cmd, r
-        self.fg, self.n, self.hv, self.fs = fg, bg, hover, fs
-        self._draw(bg)
-        self.bind("<Enter>",    lambda e: self._draw(hover))
-        self.bind("<Leave>",    lambda e: self._draw(bg))
-        self.bind("<Button-1>", lambda e: cmd and cmd())
+# ─── Accordion Card ──────────────────────────────────────────────────────────
+class AccordionCard(ctk.CTkFrame):
+    """Collapsible card with icon + title + chevron."""
+    def __init__(self, master, title, icon="◈", expanded=False, **kwargs):
+        super().__init__(master, fg_color=CARD_BG, corner_radius=14,
+                         border_width=1, border_color=BORDER, **kwargs)
+        self._expanded = expanded
+        self._anim_after = None
 
-    def _draw(self, bg):
-        self.delete("all")
-        w, h = int(self["width"]), int(self["height"])
-        pill(self, 0, 0, w, h, self.r, bg)
-        self.create_text(w//2, h//2, text=self.text,
-                         fill=self.fg, font=("Helvetica", self.fs, "bold"))
+        # Header row
+        header = ctk.CTkFrame(self, fg_color="transparent", cursor="hand2")
+        header.pack(fill="x", padx=16, pady=14)
+        header.grid_columnconfigure(1, weight=1)
+
+        self.icon_lbl = ctk.CTkLabel(header, text=icon,
+                                     text_color=BLUE, font=ctk.CTkFont(size=16))
+        self.icon_lbl.grid(row=0, column=0, padx=(0, 8))
+
+        self.title_lbl = ctk.CTkLabel(header, text=title,
+                                      text_color=TEXT_DK,
+                                      font=ctk.CTkFont(size=14, weight="bold"),
+                                      anchor="w")
+        self.title_lbl.grid(row=0, column=1, sticky="ew")
+
+        self.chevron = ctk.CTkLabel(header, text="∨" if expanded else "∨",
+                                    text_color=TEXT_LT,
+                                    font=ctk.CTkFont(size=12))
+        self.chevron.grid(row=0, column=2)
+
+        # Content frame
+        self.content = ctk.CTkFrame(self, fg_color="transparent")
+        if expanded:
+            self.content.pack(fill="x", padx=4, pady=(0, 4))
+
+        # Bind click
+        for w in (header, self.icon_lbl, self.title_lbl, self.chevron):
+            w.bind("<Button-1>", self._toggle)
+
+    def _toggle(self, _=None):
+        self._expanded = not self._expanded
+        if self._expanded:
+            self.content.pack(fill="x", padx=4, pady=(0, 4))
+        else:
+            self.content.pack_forget()
+
+    def is_expanded(self):
+        return self._expanded
 
 
-class Swatch(tk.Canvas):
-    def __init__(self, parent, color, on_pick, size=38):
-        super().__init__(parent, width=size, height=size,
-                         bg=CARD, highlightthickness=0, cursor="hand2")
-        self.color, self.on_pick, self.s = color, on_pick, size
-        self._draw()
-        self.bind("<Button-1>", self._pick)
-
-    def _draw(self):
-        self.delete("all")
-        s = self.s
-        pill(self, 3, 3, s-3, s-3, 9, self.color)
-        self.create_text(s//2, s//2, text="✎", fill="#888888", font=("Helvetica", 10))
-
-    def set_color(self, c):
-        self.color = c
-        self._draw()
-
-    def _pick(self, _):
-        res = colorchooser.askcolor(color=self.color, title="เลือกสี")
-        if res[1]:
-            self.set_color(res[1])
-            self.on_pick(res[1])
-
-
-class QRApp(tk.Tk):
+# ─── Main App ────────────────────────────────────────────────────────────────
+class QRGeneratorPro(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("QR Code Generator")
-        self.configure(bg=BG)
-        self.resizable(False, False)
-        self.qr_fg, self.qr_bg = "#1C1C27", "#FFFFFF"
-        self.qr_img = self.qr_photo = None
-        self.shape_var = tk.StringVar(value="rounded")
-        self.ec_var    = tk.StringVar(value="M")
-        self.box_v     = tk.IntVar(value=18)
-        self.brd_v     = tk.IntVar(value=4)
-        self._build()
-        self.after(150, self._gen)
+        self.title("QR Generator Pro")
+        self.geometry("1020x700")
+        self.minsize(880, 600)
+        self.configure(fg_color=BG)
 
-    # ────────────────────────────────────────────────────────────────
-    def _build(self):
-        # TOP BAR
-        top = tk.Frame(self, bg=PANEL, height=54)
-        top.pack(fill="x")
-        top.pack_propagate(False)
-        tk.Label(top, text=" ◼ QR", bg=PANEL, fg=ACCENT_H,
-                 font=("Helvetica", 15, "bold")).pack(side="left", padx=(20, 0))
-        tk.Label(top, text=" Code Generator", bg=PANEL, fg=TEXT,
-                 font=("Helvetica", 15, "bold")).pack(side="left")
+        self.qr_fg     = "#000000"
+        self.qr_bg     = "#FFFFFF"
+        self.logo_path = None
+        self.qr_img    = None
 
-        # Status chip (top-right)
-        self.status_var = tk.StringVar(value="⏳ พร้อมใช้งาน")
-        self.status_lbl = tk.Label(top, textvariable=self.status_var,
-                                   bg=CARD2, fg=TEXT2,
-                                   font=("Helvetica", 10),
-                                   padx=14, pady=3)
-        self.status_lbl.pack(side="right", padx=20, pady=10)
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure(0, weight=1)
 
-        tk.Frame(self, bg=BORDER, height=1).pack(fill="x")
+        self._build_topbar()
+        self._build_body()
+        self._show_page("create")
+        self.after(200, self._generate_qr)
 
-        # BODY
-        body = tk.Frame(self, bg=BG)
-        body.pack(padx=22, pady=18)
+    # ── Top Navigation Bar ───────────────────────────────────────────────────
+    def _build_topbar(self):
+        bar = ctk.CTkFrame(self, fg_color=CARD_BG,
+                           corner_radius=0, border_width=0,
+                           border_color=BORDER, height=56)
+        bar.grid(row=0, column=0, sticky="ew")
+        bar.grid_columnconfigure(1, weight=1)
+        bar.grid_propagate(False)
 
-        self._col_left(body)
-        tk.Frame(body, bg=BORDER, width=1).pack(side="left", fill="y", padx=18)
-        self._col_right(body)
+        # Logo
+        ctk.CTkLabel(bar, text="QR Pro",
+                     font=ctk.CTkFont(size=18, weight="bold"),
+                     text_color=BLUE).grid(row=0, column=0, padx=28, pady=14, sticky="w")
 
-    # ── LEFT ──────────────────────────────────────────────────────
-    def _col_left(self, parent):
-        col = tk.Frame(parent, bg=BG, width=360)
-        col.pack(side="left", fill="y")
-        col.pack_propagate(False)
+        # Nav buttons (right side)
+        nav = ctk.CTkFrame(bar, fg_color="transparent")
+        nav.grid(row=0, column=2, padx=20, sticky="e")
 
-        # Input
-        self._hdr(col, "📝  ข้อความ / URL")
-        wrap = tk.Frame(col, bg=CARD2, highlightbackground=ACCENT, highlightthickness=1)
-        wrap.pack(fill="x", pady=(0, 18))
-        self.txt = tk.StringVar(value="https://example.com")
-        entry = tk.Entry(wrap, textvariable=self.txt,
-                 bg=CARD2, fg=TEXT, font=("Helvetica", 13),
-                 insertbackground=ACCENT_H,
-                 relief="flat", bd=12)
-        entry.pack(fill="x")
-        entry.bind("<KeyRelease>", lambda e: self._gen())
+        self.btn_create = ctk.CTkButton(
+            nav, text="⊞  Create", height=34, corner_radius=8,
+            fg_color=BLUE, text_color="#FFFFFF", hover_color=BLUE_DK,
+            font=ctk.CTkFont(size=13, weight="bold"),
+            command=lambda: self._show_page("create"))
+        self.btn_create.pack(side="left", padx=(0, 8))
 
-        # Shape
-        self._hdr(col, "◈  รูปทรงโมดูล")
-        sg = tk.Frame(col, bg=BG)
-        sg.pack(fill="x", pady=(0, 18))
-        shapes = [("◼","square"),("◉","rounded"),("●","circle"),
-                  ("⬜","gapped"),("❙","vertical"),("═","horizontal")]
-        self._shape_cells = {}
-        for i, (icon, val) in enumerate(shapes):
-            self._make_shape_cell(sg, icon, val, i)
+        self.btn_history = ctk.CTkButton(
+            nav, text="↺  History", height=34, corner_radius=8,
+            fg_color="transparent", text_color=TEXT_MD,
+            hover_color="#F1F5F9", border_width=1, border_color=BORDER,
+            font=ctk.CTkFont(size=13),
+            command=lambda: self._show_page("history"))
+        self.btn_history.pack(side="left")
 
-        # Colors
-        self._hdr(col, "🎨  สี")
-        clr_card = tk.Frame(col, bg=CARD, highlightbackground=BORDER, highlightthickness=1)
-        clr_card.pack(fill="x", pady=(0, 18), ipadx=10, ipady=10)
+    def _show_page(self, name):
+        if name == "create":
+            self.btn_create.configure(fg_color=BLUE, text_color="#FFFFFF",
+                                      font=ctk.CTkFont(size=13, weight="bold"))
+            self.btn_history.configure(fg_color="transparent", text_color=TEXT_MD,
+                                       font=ctk.CTkFont(size=13))
+            if hasattr(self, "history_body"):
+                self.history_body.grid_forget()
+            self.create_body.grid(row=1, column=0, sticky="nsew",
+                                  padx=28, pady=20)
+        else:
+            self.btn_history.configure(fg_color=BLUE, text_color="#FFFFFF",
+                                       font=ctk.CTkFont(size=13, weight="bold"))
+            self.btn_create.configure(fg_color="transparent", text_color=TEXT_MD,
+                                      font=ctk.CTkFont(size=13))
+            self.create_body.grid_forget()
+            self.history_body.grid(row=1, column=0, sticky="nsew",
+                                   padx=28, pady=20)
+            self._load_history()
 
-        clr_inner = tk.Frame(clr_card, bg=CARD)
-        clr_inner.pack(fill="x", padx=10)
+    # ── Body ─────────────────────────────────────────────────────────────────
+    def _build_body(self):
+        # ── CREATE PAGE
+        self.create_body = ctk.CTkFrame(self, fg_color="transparent")
+        self.create_body.grid_columnconfigure(0, weight=5)
+        self.create_body.grid_columnconfigure(1, weight=4)
+        self.create_body.grid_rowconfigure(0, weight=1)
 
-        # FG
-        fg_f = tk.Frame(clr_inner, bg=CARD)
-        fg_f.pack(side="left", padx=(0, 20))
-        tk.Label(fg_f, text="สี QR", bg=CARD, fg=TEXT2, font=("Helvetica", 10)).pack(anchor="w", pady=(0,5))
-        self.fg_sw  = Swatch(fg_f, self.qr_fg, self._set_fg)
-        self.fg_sw.pack()
-        self.fg_lbl = tk.Label(fg_f, text=self.qr_fg, bg=CARD, fg=TEXT3, font=("Helvetica", 8))
-        self.fg_lbl.pack(pady=(3,0))
+        self._build_left(self.create_body)
+        self._build_right(self.create_body)
+        # Initialize after all widgets are created
+        self._on_type_change("URL")
 
-        # BG
-        bg_f = tk.Frame(clr_inner, bg=CARD)
-        bg_f.pack(side="left", padx=(0, 20))
-        tk.Label(bg_f, text="พื้นหลัง", bg=CARD, fg=TEXT2, font=("Helvetica", 10)).pack(anchor="w", pady=(0,5))
-        self.bg_sw  = Swatch(bg_f, self.qr_bg, self._set_bg)
-        self.bg_sw.pack()
-        self.bg_lbl = tk.Label(bg_f, text=self.qr_bg, bg=CARD, fg=TEXT3, font=("Helvetica", 8))
-        self.bg_lbl.pack(pady=(3,0))
+        # ── HISTORY PAGE
+        self.history_body = ctk.CTkFrame(self, fg_color="transparent")
+        self.history_body.grid_columnconfigure(0, weight=1)
+        self.history_body.grid_rowconfigure(1, weight=1)
 
-        # Presets
-        pre_f = tk.Frame(clr_inner, bg=CARD)
-        pre_f.pack(side="left")
-        tk.Label(pre_f, text="Presets", bg=CARD, fg=TEXT2, font=("Helvetica", 10)).pack(anchor="w", pady=(0,5))
-        pg = tk.Frame(pre_f, bg=CARD)
-        pg.pack()
-        for i, (f, b) in enumerate([
-            ("#1C1C27","#FFFFFF"), ("#7C3AED","#EDE9FE"),
-            ("#0F766E","#CCFBF1"), ("#1D4ED8","#EFF6FF"),
-            ("#9D174D","#FCE7F3"), ("#111827","#F9FAFB"),
-        ]):
-            c = tk.Canvas(pg, width=22, height=22, bg=CARD,
-                          highlightthickness=0, cursor="hand2")
-            c.grid(row=i//3, column=i%3, padx=2, pady=2)
-            pill(c, 2, 2, 20, 20, 6, f)
-            c.bind("<Button-1>", lambda e, ff=f, bb=b: self._preset(ff, bb))
+        h_top = ctk.CTkFrame(self.history_body, fg_color="transparent")
+        h_top.grid(row=0, column=0, sticky="ew", pady=(0, 16))
+        ctk.CTkLabel(h_top, text="Generation History",
+                     font=ctk.CTkFont(size=22, weight="bold"),
+                     text_color=TEXT_DK).pack(side="left")
+        ctk.CTkLabel(h_top, text="Review and manage your recently generated QR codes.",
+                     font=ctk.CTkFont(size=13), text_color=TEXT_LT).pack(
+                         side="left", padx=12, pady=(4, 0))
 
-        # Sliders
-        self._hdr(col, "⚙  ขนาด")
-        sl = tk.Frame(col, bg=CARD, highlightbackground=BORDER, highlightthickness=1)
-        sl.pack(fill="x", pady=(0, 18), ipadx=10, ipady=6)
-        self._slider(sl, "Box size", self.box_v,  5, 30)
-        self._slider(sl, "Border",   self.brd_v,  0, 10)
+        self.hist_scroll = ctk.CTkScrollableFrame(self.history_body,
+                                                   fg_color="transparent")
+        self.hist_scroll.grid(row=1, column=0, sticky="nsew")
 
-        # Error correction
-        self._hdr(col, "🔧  Error Correction")
-        ec = tk.Frame(col, bg=CARD, highlightbackground=BORDER, highlightthickness=1)
-        ec.pack(fill="x", pady=(0, 4), ipadx=10, ipady=10)
-        ec_row = tk.Frame(ec, bg=CARD)
-        ec_row.pack(padx=10)
-        for val, pct in [("L","7%"),("M","15%"),("Q","25%"),("H","30%")]:
-            f = tk.Frame(ec_row, bg=CARD)
-            f.pack(side="left", padx=8)
-            tk.Radiobutton(f, variable=self.ec_var, value=val,
-                           bg=CARD, activebackground=CARD,
-                           selectcolor=CARD2, command=self._gen).pack()
-            tk.Label(f, text=val, bg=CARD, fg=TEXT,
-                     font=("Helvetica", 11, "bold")).pack()
-            tk.Label(f, text=pct, bg=CARD, fg=TEXT3,
-                     font=("Helvetica", 8)).pack()
+    # ── Left Panel ───────────────────────────────────────────────────────────
+    def _build_left(self, parent):
+        left = ctk.CTkScrollableFrame(parent, fg_color="transparent",
+                                      scrollbar_button_color=BG,
+                                      scrollbar_button_hover_color=BORDER)
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, 12))
+        left.grid_columnconfigure(0, weight=1)
 
-    # ── RIGHT ─────────────────────────────────────────────────────
-    def _col_right(self, parent):
-        col = tk.Frame(parent, bg=BG)
-        col.pack(side="left")
+        # ── Type Tabs ──────────────────────────────────────────────────────
+        self.type_seg = PillSegButton(left,
+                                      values=["URL", "Text", "Email", "WiFi"],
+                                      command=self._on_type_change, height=46)
+        self.type_seg.grid(row=0, column=0, sticky="ew", pady=(0, 12))
 
-        self.canvas = tk.Canvas(col, width=460, height=460,
-                                bg=CARD, highlightbackground=BORDER,
-                                highlightthickness=1)
-        self.canvas.pack()
-        self.canvas.create_text(230, 230, text="QR Preview",
-                                fill=TEXT3, font=("Helvetica", 14))
+        # ── Enter URL Card ─────────────────────────────────────────────────
+        self.input_card = ctk.CTkFrame(left, fg_color=CARD_BG,
+                                       corner_radius=14, border_width=1,
+                                       border_color=BORDER)
+        self.input_card.grid(row=1, column=0, sticky="ew", pady=(0, 12))
+        self.input_card.grid_columnconfigure(0, weight=1)
 
-        self.size_lbl = tk.Label(col, text="", bg=BG, fg=TEXT3,
-                                 font=("Helvetica", 9))
-        self.size_lbl.pack(pady=(6, 0))
+        self.input_widgets = {}
+        self._build_input_fields(self.input_card)
 
-        btn_row = tk.Frame(col, bg=BG)
-        btn_row.pack(fill="x", pady=(14, 0))
-        PillButton(btn_row, "⟳  สร้างใหม่", self._gen,
-                   w=138, h=46, bg=ACCENT, hover=ACCENT_H).pack(side="left", padx=(0,10))
-        PillButton(btn_row, "💾  บันทึก PNG", self._save,
-                   w=152, h=46, bg=TEAL_D, hover=TEAL).pack(side="left", padx=(0,10))
-        PillButton(btn_row, "📋  Copy", self._copy,
-                   w=100, h=46, bg=CARD2, hover=CARD, fg=TEXT2).pack(side="left")
+        # ── Colors Accordion ───────────────────────────────────────────────
+        self.acc_colors = AccordionCard(left, title="Colors", icon="⬤", expanded=False)
+        self.acc_colors.grid(row=2, column=0, sticky="ew", pady=(0, 12))
+        self._build_colors_content(self.acc_colors.content)
 
-    # ── Widget helpers ────────────────────────────────────────────
-    def _hdr(self, parent, text):
-        tk.Label(parent, text=text, bg=BG, fg=ACCENT_H,
-                 font=("Helvetica", 10, "bold")).pack(anchor="w", pady=(0, 6))
+        # ── Design Accordion ───────────────────────────────────────────────
+        self.acc_design = AccordionCard(left, title="Design", icon="⊞", expanded=False)
+        self.acc_design.grid(row=3, column=0, sticky="ew", pady=(0, 12))
+        self._build_design_content(self.acc_design.content)
 
-    def _slider(self, parent, label, var, lo, hi):
-        row = tk.Frame(parent, bg=CARD)
-        row.pack(fill="x", padx=10, pady=3)
-        tk.Label(row, text=label, bg=CARD, fg=TEXT2,
-                 font=("Helvetica", 10), width=9, anchor="w").pack(side="left")
-        tk.Label(row, textvariable=var, bg=CARD, fg=ACCENT_H,
-                 font=("Helvetica", 10, "bold"), width=3).pack(side="right")
-        tk.Scale(row, variable=var, from_=lo, to=hi,
-                 orient="horizontal", showvalue=False,
-                 bg=CARD, troughcolor=CARD2,
-                 activebackground=ACCENT,
-                 highlightthickness=0,
-                 command=lambda e: self._gen()).pack(side="left", fill="x", expand=True)
+        # ── Logo Accordion ─────────────────────────────────────────────────
+        self.acc_logo = AccordionCard(left, title="Logo", icon="⬜", expanded=False)
+        self.acc_logo.grid(row=4, column=0, sticky="ew", pady=(0, 12))
+        self._build_logo_content(self.acc_logo.content)
 
-    def _make_shape_cell(self, parent, icon, val, i):
-        c = tk.Canvas(parent, width=54, height=54,
-                      bg=BG, highlightthickness=0, cursor="hand2")
-        c.grid(row=i//3, column=i%3, padx=4, pady=4)
-        c._val, c._icon = val, icon
-        self._shape_cells[val] = c
+        # Show default tab - called after right panel is built
+        # self._on_type_change("URL")  # moved to _build_body
 
-        def draw(active):
-            c.delete("all")
-            pill(c, 1, 1, 53, 53, 12, ACCENT if active else CARD)
-            c.create_text(27, 22, text=icon,
-                          fill=TEXT if active else TEXT2, font=("Helvetica", 13))
-            c.create_text(27, 40, text=val[:3],
-                          fill=TEXT if active else TEXT3, font=("Helvetica", 8))
+    def _build_input_fields(self, parent):
+        pad = dict(padx=16, pady=(0, 16))
 
-        def click(_):
-            self.shape_var.set(val)
-            for v, cv in self._shape_cells.items():
-                cv._draw_fn(v == val)
-            self._gen()
+        # ── URL ──────────────────────────────────────────────────────────
+        f_url = ctk.CTkFrame(parent, fg_color="transparent")
+        f_url.grid(row=0, column=0, sticky="ew")
+        f_url.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(f_url, text="Enter URL", text_color=TEXT_MD,
+                     font=ctk.CTkFont(size=12)).grid(row=0, column=0, sticky="w",
+                                                      padx=16, pady=(14, 4))
+        self.entry_url = ctk.CTkEntry(f_url, placeholder_text="https://...",
+                                      height=44, corner_radius=10,
+                                      border_width=1, border_color=BORDER,
+                                      fg_color="#F8FAFF",
+                                      font=ctk.CTkFont(size=13))
+        self.entry_url.insert(0, "https://qrpro.io/workspace")
+        self.entry_url.grid(row=1, column=0, sticky="ew", **pad)
+        self.entry_url.bind("<KeyRelease>", self._generate_qr)
+        self.input_widgets["URL"] = f_url
 
-        def enter(_):
-            if val != self.shape_var.get():
-                c.delete("all")
-                pill(c, 1, 1, 53, 53, 12, CARD2)
-                c.create_text(27, 22, text=icon, fill=TEXT2, font=("Helvetica", 13))
-                c.create_text(27, 40, text=val[:3], fill=TEXT3, font=("Helvetica", 8))
+        # ── Text ──────────────────────────────────────────────────────────
+        f_txt = ctk.CTkFrame(parent, fg_color="transparent")
+        f_txt.grid(row=0, column=0, sticky="ew")
+        f_txt.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(f_txt, text="Enter Text", text_color=TEXT_MD,
+                     font=ctk.CTkFont(size=12)).grid(row=0, column=0, sticky="w",
+                                                      padx=16, pady=(14, 4))
+        self.entry_txt = ctk.CTkTextbox(f_txt, height=90, corner_radius=10,
+                                        border_width=1, border_color=BORDER,
+                                        fg_color="#F8FAFF",
+                                        font=ctk.CTkFont(size=13))
+        self.entry_txt.grid(row=1, column=0, sticky="ew", **pad)
+        self.entry_txt.bind("<KeyRelease>", self._generate_qr)
+        self.input_widgets["Text"] = f_txt
 
-        def leave(_):
-            draw(val == self.shape_var.get())
+        # ── Email ─────────────────────────────────────────────────────────
+        f_eml = ctk.CTkFrame(parent, fg_color="transparent")
+        f_eml.grid(row=0, column=0, sticky="ew")
+        f_eml.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(f_eml, text="Email Address", text_color=TEXT_MD,
+                     font=ctk.CTkFont(size=12)).grid(row=0, column=0, sticky="w",
+                                                      padx=16, pady=(14, 4))
+        self.entry_eml = ctk.CTkEntry(f_eml, placeholder_text="hello@example.com",
+                                      height=44, corner_radius=10,
+                                      border_width=1, border_color=BORDER,
+                                      fg_color="#F8FAFF",
+                                      font=ctk.CTkFont(size=13))
+        self.entry_eml.grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 8))
+        self.entry_eml.bind("<KeyRelease>", self._generate_qr)
+        ctk.CTkLabel(f_eml, text="Subject", text_color=TEXT_MD,
+                     font=ctk.CTkFont(size=12)).grid(row=2, column=0, sticky="w",
+                                                      padx=16, pady=(0, 4))
+        self.entry_sub = ctk.CTkEntry(f_eml, placeholder_text="Subject line...",
+                                      height=44, corner_radius=10,
+                                      border_width=1, border_color=BORDER,
+                                      fg_color="#F8FAFF",
+                                      font=ctk.CTkFont(size=13))
+        self.entry_sub.grid(row=3, column=0, sticky="ew", **pad)
+        self.entry_sub.bind("<KeyRelease>", self._generate_qr)
+        self.input_widgets["Email"] = f_eml
 
-        c._draw_fn = draw
-        draw(val == self.shape_var.get())
-        c.bind("<Button-1>", click)
-        c.bind("<Enter>", enter)
-        c.bind("<Leave>", leave)
+        # ── WiFi ──────────────────────────────────────────────────────────
+        f_wifi = ctk.CTkFrame(parent, fg_color="transparent")
+        f_wifi.grid(row=0, column=0, sticky="ew")
+        f_wifi.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(f_wifi, text="Network Name (SSID)", text_color=TEXT_MD,
+                     font=ctk.CTkFont(size=12)).grid(row=0, column=0, sticky="w",
+                                                      padx=16, pady=(14, 4))
+        self.entry_ssid = ctk.CTkEntry(f_wifi, placeholder_text="WiFi Name",
+                                       height=44, corner_radius=10,
+                                       border_width=1, border_color=BORDER,
+                                       fg_color="#F8FAFF",
+                                       font=ctk.CTkFont(size=13))
+        self.entry_ssid.grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 8))
+        self.entry_ssid.bind("<KeyRelease>", self._generate_qr)
+        ctk.CTkLabel(f_wifi, text="Password", text_color=TEXT_MD,
+                     font=ctk.CTkFont(size=12)).grid(row=2, column=0, sticky="w",
+                                                      padx=16, pady=(0, 4))
+        self.entry_pass = ctk.CTkEntry(f_wifi, show="*",
+                                       placeholder_text="Password",
+                                       height=44, corner_radius=10,
+                                       border_width=1, border_color=BORDER,
+                                       fg_color="#F8FAFF",
+                                       font=ctk.CTkFont(size=13))
+        self.entry_pass.grid(row=3, column=0, sticky="ew", padx=16, pady=(0, 8))
+        self.entry_pass.bind("<KeyRelease>", self._generate_qr)
+        ctk.CTkLabel(f_wifi, text="Security", text_color=TEXT_MD,
+                     font=ctk.CTkFont(size=12)).grid(row=4, column=0, sticky="w",
+                                                      padx=16, pady=(0, 4))
+        self.sec_seg = PillSegButton(f_wifi, values=["WPA/WPA2", "WEP", "None"],
+                                     command=self._generate_qr, height=38)
+        self.sec_seg.grid(row=5, column=0, sticky="ew", padx=16, pady=(0, 16))
+        self.input_widgets["WiFi"] = f_wifi
 
-    # ── Color callbacks ───────────────────────────────────────────
-    def _set_fg(self, c):
-        self.qr_fg = c; self.fg_lbl.config(text=c); self._gen()
+    def _build_colors_content(self, parent):
+        parent.grid_columnconfigure(0, weight=1)
+        parent.grid_columnconfigure(1, weight=1)
 
-    def _set_bg(self, c):
-        self.qr_bg = c; self.bg_lbl.config(text=c); self._gen()
+        ctk.CTkLabel(parent, text="Foreground", text_color=TEXT_LT,
+                     font=ctk.CTkFont(size=11)).grid(
+                         row=0, column=0, sticky="w", padx=12, pady=(4, 4))
+        ctk.CTkLabel(parent, text="Background", text_color=TEXT_LT,
+                     font=ctk.CTkFont(size=11)).grid(
+                         row=0, column=1, sticky="w", padx=12, pady=(4, 4))
 
-    def _preset(self, fg, bg):
-        self.qr_fg, self.qr_bg = fg, bg
-        self.fg_sw.set_color(fg); self.bg_sw.set_color(bg)
-        self.fg_lbl.config(text=fg); self.bg_lbl.config(text=bg)
-        self._gen()
+        self.btn_fg = ctk.CTkButton(
+            parent, text="#000000", fg_color="#000000",
+            text_color="#FFFFFF", hover_color="#222222",
+            height=40, corner_radius=8,
+            command=lambda: self._pick_color("fg"))
+        self.btn_fg.grid(row=1, column=0, padx=(12, 6), pady=(0, 12), sticky="ew")
 
-    # ── Generate ──────────────────────────────────────────────────
+        self.btn_bg = ctk.CTkButton(
+            parent, text="#FFFFFF", fg_color="#FFFFFF",
+            text_color=TEXT_DK, hover_color="#F8FAFC",
+            border_width=1, border_color=BORDER,
+            height=40, corner_radius=8,
+            command=lambda: self._pick_color("bg"))
+        self.btn_bg.grid(row=1, column=1, padx=(6, 12), pady=(0, 12), sticky="ew")
+
+    def _build_design_content(self, parent):
+        parent.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(parent, text="Pattern Style", text_color=TEXT_LT,
+                     font=ctk.CTkFont(size=11)).grid(
+                         row=0, column=0, sticky="w", padx=12, pady=(4, 4))
+        self.shape_seg = PillSegButton(parent,
+                                       values=["Square", "Rounded", "Circle", "Gapped"],
+                                       command=self._generate_qr, height=38)
+        self.shape_seg.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 12))
+
+    def _build_logo_content(self, parent):
+        parent.grid_columnconfigure(0, weight=1)
+        self.logo_btn = ctk.CTkButton(
+            parent, text="⬆  Drop logo here or click to browse\nPNG · SVG · JPG",
+            fg_color="#F8FAFF", text_color=TEXT_LT,
+            hover_color="#EEF2FF", border_width=1, border_color=BORDER,
+            height=80, corner_radius=10,
+            command=self._upload_logo)
+        self.logo_btn.grid(row=0, column=0, sticky="ew", padx=12, pady=(4, 4))
+        self.logo_clear = ctk.CTkButton(
+            parent, text="Remove Logo", fg_color="transparent",
+            text_color="#EF4444", hover_color="#FEE2E2",
+            height=28, font=ctk.CTkFont(size=11),
+            command=self._clear_logo)
+
+    # ── Right Panel ──────────────────────────────────────────────────────────
+    def _build_right(self, parent):
+        right = ctk.CTkFrame(parent, fg_color=CARD_BG,
+                             corner_radius=16, border_width=1, border_color=BORDER)
+        right.grid(row=0, column=1, sticky="nsew", padx=(12, 0))
+        right.grid_rowconfigure(1, weight=1)
+        right.grid_columnconfigure(0, weight=1)
+
+        # Header
+        h = ctk.CTkFrame(right, fg_color="transparent")
+        h.grid(row=0, column=0, sticky="ew", padx=20, pady=(20, 12))
+        ctk.CTkLabel(h, text="Live Preview",
+                     font=ctk.CTkFont(size=16, weight="bold"),
+                     text_color=TEXT_DK).pack(side="left")
+        ctk.CTkLabel(h, text="● Synced",
+                     fg_color="#DCFCE7", text_color="#16A34A",
+                     corner_radius=20, padx=10,
+                     font=ctk.CTkFont(size=11, weight="bold")).pack(side="right")
+
+        # QR Display Area — blue gradient bg
+        disp_outer = ctk.CTkFrame(right, fg_color="#3B5BDB", corner_radius=12)
+        disp_outer.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 16))
+        disp_outer.grid_rowconfigure(0, weight=1)
+        disp_outer.grid_columnconfigure(0, weight=1)
+
+        disp_inner = ctk.CTkFrame(disp_outer, fg_color=CARD_BG, corner_radius=12)
+        disp_inner.grid(row=0, column=0, padx=20, pady=20, sticky="nsew")
+
+        self.qr_display = ctk.CTkLabel(disp_inner, text="")
+        self.qr_display.pack(expand=True, padx=20, pady=20)
+
+        # Download Buttons
+        btn_row = ctk.CTkFrame(right, fg_color="transparent")
+        btn_row.grid(row=2, column=0, sticky="ew", padx=20, pady=(0, 8))
+        btn_row.grid_columnconfigure(0, weight=1)
+        btn_row.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkButton(btn_row, text="⬇  PNG Image",
+                      fg_color=BLUE, hover_color=BLUE_DK,
+                      text_color="#FFFFFF", height=42, corner_radius=8,
+                      font=ctk.CTkFont(size=13, weight="bold"),
+                      command=self._save_png).grid(row=0, column=0,
+                                                    padx=(0, 6), sticky="ew")
+
+        ctk.CTkButton(btn_row, text="⬇  SVG Vector",
+                      fg_color=BLUE_LT, hover_color="#DBEAFE",
+                      text_color=BLUE, height=42, corner_radius=8,
+                      font=ctk.CTkFont(size=13, weight="bold"),
+                      command=self._save_svg).grid(row=0, column=1,
+                                                    padx=(6, 0), sticky="ew")
+
+        ctk.CTkButton(right, text="⎙  Print Directly",
+                      fg_color=CARD_BG, hover_color="#F8FAFC",
+                      text_color=TEXT_MD, border_width=1, border_color=BORDER,
+                      height=42, corner_radius=8,
+                      font=ctk.CTkFont(size=13),
+                      command=self._print).grid(row=3, column=0, sticky="ew",
+                                                 padx=20, pady=(0, 12))
+
+        # Accuracy badge
+        acc = ctk.CTkFrame(right, fg_color="transparent")
+        acc.grid(row=4, column=0, sticky="ew", padx=20, pady=(0, 20))
+        ctk.CTkLabel(acc, text="Scan Accuracy",
+                     font=ctk.CTkFont(size=11), text_color=TEXT_LT).pack(anchor="w")
+        self.status_lbl = ctk.CTkLabel(acc, text="High (Level H)",
+                                        font=ctk.CTkFont(size=13, weight="bold"),
+                                        text_color="#16A34A")
+        self.status_lbl.pack(anchor="w")
+
+    # ── Callbacks ────────────────────────────────────────────────────────────
+    def _on_type_change(self, value):
+        for f in self.input_widgets.values():
+            f.grid_remove()
+        self.input_widgets[value].grid(row=0, column=0, sticky="ew")
+        self._generate_qr()
+
+    def _pick_color(self, target):
+        init = self.qr_fg if target == "fg" else self.qr_bg
+        res = colorchooser.askcolor(color=init, title="Select color")
+        if res[1]:
+            if target == "fg":
+                self.qr_fg = res[1]
+                r = int(res[1][1:3], 16)
+                tc = "#FFFFFF" if r < 128 else TEXT_DK
+                self.btn_fg.configure(fg_color=res[1], text=res[1].upper(),
+                                      text_color=tc)
+            else:
+                self.qr_bg = res[1]
+                r = int(res[1][1:3], 16)
+                tc = "#FFFFFF" if r < 128 else TEXT_DK
+                self.btn_bg.configure(fg_color=res[1], text=res[1].upper(),
+                                      text_color=tc)
+            self._generate_qr()
+
+    def _upload_logo(self):
+        p = filedialog.askopenfilename(
+            filetypes=[("Images", "*.png *.jpg *.jpeg *.svg")])
+        if p:
+            self.logo_path = p
+            name = os.path.basename(p)
+            self.logo_btn.configure(text=f"✓  {name}")
+            self.logo_clear.grid(row=1, column=0, sticky="ew",
+                                  padx=12, pady=(0, 12))
+            self._generate_qr()
+
+    def _clear_logo(self):
+        self.logo_path = None
+        self.logo_btn.configure(
+            text="⬆  Drop logo here or click to browse\nPNG · SVG · JPG")
+        self.logo_clear.grid_remove()
+        self._generate_qr()
+
+    def _get_data(self):
+        t = self.type_seg.get()
+        if t == "URL":
+            return self.entry_url.get().strip()
+        if t == "Text":
+            return self.entry_txt.get("1.0", "end-1c").strip()
+        if t == "Email":
+            e = self.entry_eml.get().strip()
+            s = self.entry_sub.get().strip()
+            return f"mailto:{e}?subject={s}" if e else ""
+        if t == "WiFi":
+            ssid = self.entry_ssid.get().strip()
+            pw   = self.entry_pass.get().strip()
+            sec  = {"WPA/WPA2": "WPA", "WEP": "WEP", "None": "nopass"}.get(
+                self.sec_seg.get(), "WPA")
+            return f"WIFI:S:{ssid};T:{sec};P:{pw};;" if ssid else ""
+        return ""
+
     def _drawer(self):
-        return {"square": SquareModuleDrawer(), "rounded": RoundedModuleDrawer(),
-                "circle": CircleModuleDrawer(), "gapped": GappedSquareModuleDrawer(),
-                "vertical": VerticalBarsDrawer(), "horizontal": HorizontalBarsDrawer(),
-                }.get(self.shape_var.get(), RoundedModuleDrawer())
+        s = self.shape_seg.get()
+        if s == "Circle":  return CircleModuleDrawer()
+        if s == "Rounded": return RoundedModuleDrawer()
+        if s == "Gapped":  return GappedSquareModuleDrawer()
+        return SquareModuleDrawer()
 
-    def _ec(self):
-        return {"L": qrcode.constants.ERROR_CORRECT_L, "M": qrcode.constants.ERROR_CORRECT_M,
-                "Q": qrcode.constants.ERROR_CORRECT_Q, "H": qrcode.constants.ERROR_CORRECT_H,
-                }[self.ec_var.get()]
-
-    def _gen(self, *_):
-        data = self.txt.get().strip()
+    def _generate_qr(self, *_):
+        data = self._get_data()
         if not data:
-            return self._status("⚠  กรุณาใส่ข้อความ", WARN)
+            self.qr_display.configure(image="", text="No data")
+            self.status_lbl.configure(text="No data entered", text_color="#EF4444")
+            self.qr_img = None
+            return
         try:
-            qr = qrcode.QRCode(error_correction=self._ec(),
-                               box_size=self.box_v.get(),
-                               border=self.brd_v.get())
-            qr.add_data(data); qr.make(fit=True)
+            qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_H,
+                               box_size=10, border=2)
+            qr.add_data(data)
+            qr.make(fit=True)
             img = qr.make_image(image_factory=StyledPilImage,
                                 module_drawer=self._drawer()).convert("RGBA")
+            # Colorise
             fg, bg = hex_rgb(self.qr_fg), hex_rgb(self.qr_bg)
             px = img.load()
             for x in range(img.width):
                 for y in range(img.height):
                     r, *_ = px[x, y]
                     px[x, y] = (*fg, 255) if r < 128 else (*bg, 255)
+            # Logo overlay
+            if self.logo_path and os.path.exists(self.logo_path):
+                try:
+                    logo = Image.open(self.logo_path).convert("RGBA")
+                    bw = int(img.width * 0.22)
+                    logo = logo.resize(
+                        (bw, int(logo.height * bw / logo.width)), RESAMPLE)
+                    pos = ((img.width - logo.width) // 2,
+                           (img.height - logo.height) // 2)
+                    patch = Image.new("RGBA",
+                                      (logo.width + 12, logo.height + 12),
+                                      (*bg, 255))
+                    img.paste(patch, (pos[0] - 6, pos[1] - 6))
+                    img.paste(logo, pos, logo)
+                except Exception:
+                    pass
             self.qr_img = img
-            disp = img.copy(); disp.thumbnail((458, 458), RESAMPLE)
-            self.qr_photo = ImageTk.PhotoImage(disp)
-            self.canvas.delete("all")
-            self.canvas.create_image(230, 230, image=self.qr_photo)
-            self.size_lbl.config(text=f"{img.width} × {img.height} px  ·  version {qr.version}")
-            self._status(f"✅  สร้างสำเร็จ  ·  {len(data)} ตัวอักษร  ·  version {qr.version}", SUCCESS)
-        except Exception as ex:
-            self._status(f"❌  {ex}", ERR)
+            thumb = img.copy()
+            thumb.thumbnail((260, 260), RESAMPLE)
+            ctk_img = ctk.CTkImage(light_image=thumb, dark_image=thumb,
+                                   size=(thumb.width, thumb.height))
+            self.qr_display.configure(image=ctk_img, text="")
+            self.status_lbl.configure(
+                text=f"High (Level H)  ·  {img.width}×{img.height} px",
+                text_color="#16A34A")
+        except Exception as e:
+            self.status_lbl.configure(text=f"Error: {e}", text_color="#EF4444")
 
-    def _status(self, msg, color=TEXT2):
-        self.status_var.set(msg); self.status_lbl.config(fg=color)
-
-    def _save(self):
+    # ── Save / Print ──────────────────────────────────────────────────────────
+    def _save_png(self):
         if not self.qr_img:
-            return messagebox.showwarning("ยังไม่มีรูป", "กรุณาสร้าง QR ก่อน")
-        path = filedialog.asksaveasfilename(defaultextension=".png",
-            filetypes=[("PNG","*.png"),("All","*.*")],
-            initialfile="qrcode.png", title="บันทึก QR Code")
-        if path:
-            self.qr_img.save(path)
-            self._status(f"💾  บันทึก: {os.path.basename(path)}", TEAL)
+            messagebox.showwarning("No QR", "Generate a QR code first.")
+            return
+        p = filedialog.asksaveasfilename(defaultextension=".png",
+                                         filetypes=[("PNG", "*.png")],
+                                         initialfile="QR_Code.png")
+        if p:
+            self.qr_img.save(p)
+            self._save_history()
 
-    def _copy(self):
-        if not self.qr_img:
-            return messagebox.showwarning("ยังไม่มีรูป", "กรุณาสร้าง QR ก่อน")
-        try:
-            tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
-            self.qr_img.save(tmp.name); tmp.close()
-            if os.name == "nt":
-                subprocess.run(["clip"], stdin=open(tmp.name,"rb"), check=True)
-            else:
-                subprocess.run(["osascript", "-e",
-                    f'set the clipboard to (read POSIX file "{tmp.name}" as «class PNGf»)'],
-                    check=True)
-            self._status("📋  คัดลอกแล้ว", TEAL)
-        except Exception:
-            self._status("⚠  Copy ไม่สำเร็จ — ลองบันทึกแทน", WARN)
+    def _save_svg(self):
+        data = self._get_data()
+        if not data:
+            messagebox.showwarning("No data", "Enter data first.")
+            return
+        p = filedialog.asksaveasfilename(defaultextension=".svg",
+                                         filetypes=[("SVG", "*.svg")],
+                                         initialfile="QR_Code.svg")
+        if p:
+            import qrcode.image.svg
+            factory = qrcode.image.svg.SvgPathImage
+            qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_H,
+                               box_size=10, border=4, image_factory=factory)
+            qr.add_data(data)
+            qr.make(fit=True)
+            qr.make_image().save(p)
+            self._save_history()
+
+    def _print(self):
+        messagebox.showinfo("Print", "Printing via system dialog.")
+
+    def _save_history(self):
+        data = self._get_data()
+        if not data or not self.qr_img:
+            return
+        ts = int(datetime.now().timestamp())
+        fn = f"qr_{ts}.png"
+        fp = os.path.join(HISTORY_DIR, fn)
+        self.qr_img.save(fp)
+        entry = {"id": ts, "type": self.type_seg.get(), "data": data,
+                 "image": fn, "date": datetime.now().strftime("%b %d, %Y %H:%M")}
+        history = []
+        if os.path.exists(HISTORY_FILE):
+            try:
+                with open(HISTORY_FILE) as f:
+                    history = json.load(f)
+            except Exception:
+                pass
+        if history and history[0].get("data") == data:
+            return
+        history.insert(0, entry)
+        with open(HISTORY_FILE, "w") as f:
+            json.dump(history[:50], f, indent=2)
+
+    def _load_history(self):
+        for w in self.hist_scroll.winfo_children():
+            w.destroy()
+        history = []
+        if os.path.exists(HISTORY_FILE):
+            try:
+                with open(HISTORY_FILE) as f:
+                    history = json.load(f)
+            except Exception:
+                pass
+        if not history:
+            ctk.CTkLabel(self.hist_scroll, text="No history yet.",
+                         text_color=TEXT_LT,
+                         font=ctk.CTkFont(size=14)).pack(pady=60)
+            return
+        for i in range(3):
+            self.hist_scroll.grid_columnconfigure(i, weight=1)
+        for idx, item in enumerate(history):
+            self._make_history_card(item, idx // 3, idx % 3)
+
+    def _make_history_card(self, item, row, col):
+        card = ctk.CTkFrame(self.hist_scroll, fg_color=CARD_BG,
+                            corner_radius=12, border_width=1, border_color=BORDER)
+        card.grid(row=row, column=col, padx=8, pady=8, sticky="nsew")
+
+        img_path = os.path.join(HISTORY_DIR, item.get("image", ""))
+        if os.path.exists(img_path):
+            try:
+                thumb = Image.open(img_path)
+                ci = ctk.CTkImage(light_image=thumb, dark_image=thumb, size=(56, 56))
+                ctk.CTkLabel(card, image=ci, text="").grid(
+                    row=0, column=0, rowspan=2, padx=14, pady=14, sticky="w")
+            except Exception:
+                pass
+
+        meta = ctk.CTkFrame(card, fg_color="transparent")
+        meta.grid(row=0, column=1, sticky="nsew", padx=(0, 12), pady=(14, 4))
+        ctk.CTkLabel(meta, text=item.get("type", "QR"),
+                     fg_color=BLUE_LT, text_color=BLUE,
+                     corner_radius=4, padx=6,
+                     font=ctk.CTkFont(size=10, weight="bold")).pack(side="left")
+        ctk.CTkLabel(meta, text=item.get("date", ""),
+                     text_color=TEXT_LT,
+                     font=ctk.CTkFont(size=10)).pack(side="right")
+
+        short = item.get("data", "")
+        if len(short) > 26:
+            short = short[:23] + "..."
+        ctk.CTkLabel(card, text=short, text_color=TEXT_DK,
+                     font=ctk.CTkFont(size=12, weight="bold"),
+                     anchor="w").grid(row=1, column=1, sticky="w",
+                                      padx=(0, 12), pady=(0, 14))
+
+        af = ctk.CTkFrame(card, fg_color="transparent")
+        af.grid(row=2, column=0, columnspan=2, sticky="ew", padx=12, pady=(0, 12))
+        af.grid_columnconfigure(0, weight=1)
+
+        def _export():
+            p = filedialog.asksaveasfilename(defaultextension=".png",
+                                              filetypes=[("PNG", "*.png")])
+            if p and os.path.exists(img_path):
+                import shutil
+                shutil.copy(img_path, p)
+
+        def _delete():
+            hist = []
+            if os.path.exists(HISTORY_FILE):
+                with open(HISTORY_FILE) as f:
+                    hist = json.load(f)
+            hist = [h for h in hist if h.get("id") != item.get("id")]
+            with open(HISTORY_FILE, "w") as f:
+                json.dump(hist, f, indent=2)
+            if os.path.exists(img_path):
+                os.remove(img_path)
+            self._load_history()
+
+        ctk.CTkButton(af, text="⬇", width=32, height=28, corner_radius=6,
+                      fg_color="#F1F5F9", text_color=TEXT_MD,
+                      hover_color=BORDER, command=_export).pack(side="left", padx=(0, 4))
+        ctk.CTkButton(af, text="🗑", width=32, height=28, corner_radius=6,
+                      fg_color="transparent", text_color="#EF4444",
+                      hover_color="#FEE2E2", command=_delete).pack(side="right")
 
 
 if __name__ == "__main__":
-    app = QRApp()
-    app.update_idletasks()
-    sw, sh = app.winfo_screenwidth(), app.winfo_screenheight()
-    w,  h  = app.winfo_reqwidth(),    app.winfo_reqheight()
-    app.geometry(f"+{(sw-w)//2}+{(sh-h)//2}")
+    app = QRGeneratorPro()
     app.mainloop()
