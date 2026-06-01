@@ -79,7 +79,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: QR-Generator-Pro-Windows
-        path: dist/QR Generator Pro.exe
+        path: "dist/QR Generator Pro"
 
     - name: Upload Artifact (Linux)
       if: matrix.os == 'ubuntu-latest'
@@ -111,11 +111,11 @@ jobs:
           
           # Zip Windows and Linux
           cd artifacts/QR-Generator-Pro-Windows
-          zip -r ../../QR-Generator-Pro-Windows.zip "QR Generator Pro.exe"
+          zip -r ../../QR-Generator-Pro-Windows.zip .
           cd ../..
           
           cd artifacts/QR-Generator-Pro-Linux
-          zip -r ../../QR-Generator-Pro-Linux.zip "QR Generator Pro"
+          zip -r ../../QR-Generator-Pro-Linux.zip .
           cd ../..
 
       - name: Create GitHub Release
