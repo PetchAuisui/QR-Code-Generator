@@ -101,20 +101,22 @@ jobs:
           
       - name: Prepare Release Assets
         run: |
-          cd artifacts
-          # Zip macOS App (required for .app directories)
-          cd QR-Generator-Pro-macOS
+          # The macOS artifact contains the *contents* of the .app folder, 
+          # so we need to recreate the folder structure before zipping.
+          mkdir -p "macOS_build/QR Generator Pro.app"
+          mv artifacts/QR-Generator-Pro-macOS/* "macOS_build/QR Generator Pro.app/"
+          cd macOS_build
           zip -r ../QR-Generator-Pro-macOS.zip "QR Generator Pro.app"
           cd ..
           
-          # Zip Linux and Windows 
-          cd QR-Generator-Pro-Windows
-          zip -r ../QR-Generator-Pro-Windows.zip "QR Generator Pro.exe"
-          cd ..
+          # Zip Windows and Linux
+          cd artifacts/QR-Generator-Pro-Windows
+          zip -r ../../QR-Generator-Pro-Windows.zip "QR Generator Pro.exe"
+          cd ../..
           
-          cd QR-Generator-Pro-Linux
-          zip -r ../QR-Generator-Pro-Linux.zip "QR Generator Pro"
-          cd ..
+          cd artifacts/QR-Generator-Pro-Linux
+          zip -r ../../QR-Generator-Pro-Linux.zip "QR Generator Pro"
+          cd ../..
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
