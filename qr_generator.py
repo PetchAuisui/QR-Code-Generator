@@ -487,13 +487,27 @@ class QRGeneratorPro(ctk.CTk):
                       command=self._save_svg).grid(row=0, column=1,
                                                     padx=(8, 0), sticky="ew")
 
-        ctk.CTkButton(right, text="⎙  Print Directly",
+        # Secondary Buttons
+        btn_row2 = ctk.CTkFrame(right, fg_color="transparent")
+        btn_row2.grid(row=3, column=0, sticky="ew", padx=24, pady=(0, 20))
+        btn_row2.grid_columnconfigure(0, weight=1)
+        btn_row2.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkButton(btn_row2, text="📋  Copy Image",
                       fg_color="transparent", hover_color="#eff4ff",
                       text_color=TEXT_MD, border_width=1, border_color=BORDER,
                       height=44, corner_radius=12,
                       font=ctk.CTkFont(size=14),
-                      command=self._print).grid(row=3, column=0, sticky="ew",
-                                                 padx=24, pady=(0, 20))
+                      command=self._copy_image).grid(row=0, column=0,
+                                                     padx=(0, 8), sticky="ew")
+
+        ctk.CTkButton(btn_row2, text="⎙  Print Directly",
+                      fg_color="transparent", hover_color="#eff4ff",
+                      text_color=TEXT_MD, border_width=1, border_color=BORDER,
+                      height=44, corner_radius=12,
+                      font=ctk.CTkFont(size=14),
+                      command=self._print).grid(row=0, column=1,
+                                                 padx=(8, 0), sticky="ew")
 
         # Accuracy badge (Moved to bottom)
         acc = ctk.CTkFrame(right, fg_color="transparent")
@@ -628,14 +642,26 @@ class QRGeneratorPro(ctk.CTk):
     # ── Save / Print ──────────────────────────────────────────────────────────
     def _save_png(self):
         if not self.qr_img:
-            messagebox.showwarning("No QR", "Generate a QR code first.")
             return
-        p = filedialog.asksaveasfilename(defaultextension=".png",
-                                         filetypes=[("PNG", "*.png")],
-                                         initialfile="QR_Code.png")
-        if p:
-            self.qr_img.save(p)
+        path = filedialog.asksaveasfilename(defaultextension=".png",
+                                            filetypes=[("PNG files", "*.png")])
+        if path:
+            self.qr_img.save(path, "PNG")
+            self.status_lbl.configure(text=f"Saved: {os.path.basename(path)}", text_color="#16A34A")
             self._save_history()
+
+    def _copy_image(self):
+        if not self.qr_img: return
+        import tempfile, subprocess
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
+                self.qr_img.save(f.name, "PNG")
+                tmp_path = f.name
+            script = f'set the clipboard to (read (POSIX file "{tmp_path}") as TIFF picture)'
+            subprocess.run(["osascript", "-e", script], check=True)
+            self.status_lbl.configure(text="Copied to clipboard!", text_color="#16A34A")
+        except Exception as e:
+            self.status_lbl.configure(text=f"Copy failed: {e}", text_color="#EF4444")
 
     def _save_svg(self):
         data = self._get_data()
