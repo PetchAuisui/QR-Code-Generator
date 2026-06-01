@@ -92,6 +92,8 @@ jobs:
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       
@@ -122,9 +124,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            artifacts/QR-Generator-Pro-macOS.zip
-            artifacts/QR-Generator-Pro-Windows.zip
-            artifacts/QR-Generator-Pro-Linux.zip
+            QR-Generator-Pro-macOS.zip
+            QR-Generator-Pro-Windows.zip
+            QR-Generator-Pro-Linux.zip
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
