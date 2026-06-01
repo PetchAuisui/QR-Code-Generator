@@ -1,5 +1,5 @@
 import customtkinter as ctk
-from config import BLUE, BLUE_DK, CARD_BG, BORDER, TEXT_DK, TEXT_MD, TEXT_LT
+from .config import BLUE, BLUE_DK, CARD_BG, BORDER, TEXT_DK, TEXT_MD, TEXT_LT
 
 class PillSegButton(ctk.CTkFrame):
     """Custom Segmented Button styled as a Pill."""

@@ -4,9 +4,9 @@ import customtkinter as ctk
 from PIL import Image
 import shutil
 
-from config import *
-from core import QRManager, HistoryManager, ClipboardManager
-from widgets import PillSegButton, AccordionCard
+from .config import *
+from .core import QRManager, HistoryManager, ClipboardManager
+from .widgets import PillSegButton, AccordionCard
 
 RESAMPLE = getattr(Image, "Resampling", Image).LANCZOS
 

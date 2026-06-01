@@ -1,5 +1,5 @@
 import customtkinter as ctk
-from ui import AppWindow
+from src.ui import AppWindow
 
 if __name__ == "__main__":
     ctk.set_appearance_mode("Light")

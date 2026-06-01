@@ -10,7 +10,7 @@ from qrcode.image.styles.moduledrawers import (
 )
 from PIL import Image
 
-from config import HISTORY_FILE, HISTORY_DIR, hex_rgb
+from .config import HISTORY_FILE, HISTORY_DIR, hex_rgb
 
 RESAMPLE = getattr(Image, "Resampling", Image).LANCZOS
 
