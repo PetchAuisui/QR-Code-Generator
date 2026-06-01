@@ -19,15 +19,15 @@ HISTORY_FILE = "history.json"
 HISTORY_DIR = "history_images"
 os.makedirs(HISTORY_DIR, exist_ok=True)
 
-BG       = "#EEF2FF"  # page background
-CARD_BG  = "#FFFFFF"
-BORDER   = "#E2E8F0"
-BLUE     = "#2563EB"
-BLUE_DK  = "#1D4ED8"
-BLUE_LT  = "#EEF2FF"
-TEXT_DK  = "#1E293B"
-TEXT_MD  = "#475569"
-TEXT_LT  = "#94A3B8"
+BG       = "#f8f9ff"  # background
+CARD_BG  = "#ffffff"  # surface-container-lowest
+BORDER   = "#c3c6d7"  # outline-variant
+BLUE     = "#004ac6"  # primary
+BLUE_DK  = "#003ea8"  # on-primary-fixed-variant (for hover)
+BLUE_LT  = "#eff4ff"  # surface-container-low
+TEXT_DK  = "#0b1c30"  # on-surface
+TEXT_MD  = "#434655"  # on-surface-variant
+TEXT_LT  = "#737686"  # outline
 
 
 def hex_rgb(h):
@@ -37,9 +37,9 @@ def hex_rgb(h):
 
 # ─── Custom Pill Segmented Button ───────────────────────────────────────────
 class PillSegButton(ctk.CTkFrame):
-    def __init__(self, master, values, command=None, height=40, **kwargs):
-        super().__init__(master, fg_color=CARD_BG, corner_radius=60,
-                         border_width=1, border_color=BORDER, **kwargs)
+    def __init__(self, master, values, command=None, height=44, **kwargs):
+        super().__init__(master, fg_color="#eff4ff", bg_color="transparent",
+                         corner_radius=12, border_width=1, border_color="#e5eeff", **kwargs)
         self.command = command
         self.buttons = {}
         self._value = ctk.StringVar(value=values[0])
@@ -50,8 +50,8 @@ class PillSegButton(ctk.CTkFrame):
             b = ctk.CTkButton(
                 self, text=v, height=height - 8,
                 fg_color="transparent", text_color=TEXT_MD,
-                hover_color="#F1F5F9", corner_radius=60,
-                font=ctk.CTkFont(size=13),
+                hover_color="#dce9ff", corner_radius=8,
+                font=ctk.CTkFont(size=14, weight="bold"),
                 command=lambda val=v: self.set(val)
             )
             b.grid(row=0, column=i, padx=4, pady=4, sticky="ew")
@@ -70,42 +70,39 @@ class PillSegButton(ctk.CTkFrame):
     def _refresh(self, selected):
         for v, b in self.buttons.items():
             if v == selected:
-                b.configure(fg_color=BLUE, text_color="#FFFFFF",
-                             hover_color=BLUE_DK,
-                             font=ctk.CTkFont(size=13, weight="bold"))
+                b.configure(fg_color=BLUE, text_color="#ffffff",
+                             hover_color=BLUE_DK)
             else:
                 b.configure(fg_color="transparent", text_color=TEXT_MD,
-                             hover_color="#F1F5F9",
-                             font=ctk.CTkFont(size=13))
+                             hover_color="#dce9ff")
 
 
 # ─── Accordion Card ──────────────────────────────────────────────────────────
 class AccordionCard(ctk.CTkFrame):
     """Collapsible card with icon + title + chevron."""
-    def __init__(self, master, title, icon="◈", expanded=False, **kwargs):
-        super().__init__(master, fg_color=CARD_BG, corner_radius=14,
+    def __init__(self, master, title, icon="🎨", expanded=False, **kwargs):
+        super().__init__(master, fg_color=CARD_BG, corner_radius=12,
                          border_width=1, border_color=BORDER, **kwargs)
         self._expanded = expanded
-        self._anim_after = None
 
         # Header row
-        header = ctk.CTkFrame(self, fg_color="transparent", cursor="hand2")
-        header.pack(fill="x", padx=16, pady=14)
+        header = ctk.CTkFrame(self, fg_color="transparent")
+        header.pack(fill="x", padx=20, pady=20)
         header.grid_columnconfigure(1, weight=1)
 
         self.icon_lbl = ctk.CTkLabel(header, text=icon,
-                                     text_color=BLUE, font=ctk.CTkFont(size=16))
-        self.icon_lbl.grid(row=0, column=0, padx=(0, 8))
+                                     text_color=BLUE, font=ctk.CTkFont(size=20))
+        self.icon_lbl.grid(row=0, column=0, padx=(0, 12))
 
         self.title_lbl = ctk.CTkLabel(header, text=title,
                                       text_color=TEXT_DK,
-                                      font=ctk.CTkFont(size=14, weight="bold"),
+                                      font=ctk.CTkFont(size=16, weight="bold"),
                                       anchor="w")
         self.title_lbl.grid(row=0, column=1, sticky="ew")
 
-        self.chevron = ctk.CTkLabel(header, text="∨" if expanded else "∨",
+        self.chevron = ctk.CTkLabel(header, text="∨",
                                     text_color=TEXT_LT,
-                                    font=ctk.CTkFont(size=12))
+                                    font=ctk.CTkFont(size=14))
         self.chevron.grid(row=0, column=2)
 
         # Content frame
@@ -123,9 +120,6 @@ class AccordionCard(ctk.CTkFrame):
             self.content.pack(fill="x", padx=4, pady=(0, 4))
         else:
             self.content.pack_forget()
-
-    def is_expanded(self):
-        return self._expanded
 
 
 # ─── Main App ────────────────────────────────────────────────────────────────
@@ -153,11 +147,14 @@ class QRGeneratorPro(ctk.CTk):
     # ── Top Navigation Bar ───────────────────────────────────────────────────
     def _build_topbar(self):
         bar = ctk.CTkFrame(self, fg_color=CARD_BG,
-                           corner_radius=0, border_width=0,
+                           corner_radius=0, border_width=1,
                            border_color=BORDER, height=56)
         bar.grid(row=0, column=0, sticky="ew")
         bar.grid_columnconfigure(1, weight=1)
         bar.grid_propagate(False)
+        # Only show bottom border using a separator line
+        sep = ctk.CTkFrame(self, fg_color=BORDER, height=1, corner_radius=0)
+        sep.grid(row=0, column=0, sticky="ews")
 
         # Logo
         ctk.CTkLabel(bar, text="QR Pro",
@@ -246,31 +243,34 @@ class QRGeneratorPro(ctk.CTk):
         self.type_seg = PillSegButton(left,
                                       values=["URL", "Text", "Email", "WiFi"],
                                       command=self._on_type_change, height=46)
-        self.type_seg.grid(row=0, column=0, sticky="ew", pady=(0, 12))
+        self.type_seg.grid(row=0, column=0, sticky="ew", padx=2, pady=(0, 12))
 
         # ── Enter URL Card ─────────────────────────────────────────────────
         self.input_card = ctk.CTkFrame(left, fg_color=CARD_BG,
-                                       corner_radius=14, border_width=1,
+                                       corner_radius=12, border_width=1,
                                        border_color=BORDER)
-        self.input_card.grid(row=1, column=0, sticky="ew", pady=(0, 12))
+        self.input_card.grid(row=1, column=0, sticky="ew", padx=2, pady=(0, 16))
         self.input_card.grid_columnconfigure(0, weight=1)
 
         self.input_widgets = {}
         self._build_input_fields(self.input_card)
 
         # ── Colors Accordion ───────────────────────────────────────────────
-        self.acc_colors = AccordionCard(left, title="Colors", icon="⬤", expanded=False)
-        self.acc_colors.grid(row=2, column=0, sticky="ew", pady=(0, 12))
+        self.acc_colors = AccordionCard(left, title="Colors",
+                                        icon="🎨", expanded=False)
+        self.acc_colors.grid(row=2, column=0, sticky="ew", padx=2, pady=(0, 16))
         self._build_colors_content(self.acc_colors.content)
 
         # ── Design Accordion ───────────────────────────────────────────────
-        self.acc_design = AccordionCard(left, title="Design", icon="⊞", expanded=False)
-        self.acc_design.grid(row=3, column=0, sticky="ew", pady=(0, 12))
+        self.acc_design = AccordionCard(left, title="Design",
+                                        icon="⊞", expanded=False)
+        self.acc_design.grid(row=3, column=0, sticky="ew", padx=2, pady=(0, 16))
         self._build_design_content(self.acc_design.content)
 
         # ── Logo Accordion ─────────────────────────────────────────────────
-        self.acc_logo = AccordionCard(left, title="Logo", icon="⬜", expanded=False)
-        self.acc_logo.grid(row=4, column=0, sticky="ew", pady=(0, 12))
+        self.acc_logo = AccordionCard(left, title="Logo",
+                                      icon="🖼️", expanded=False)
+        self.acc_logo.grid(row=4, column=0, sticky="ew", padx=2, pady=(0, 16))
         self._build_logo_content(self.acc_logo.content)
 
         # Show default tab - called after right panel is built
@@ -286,11 +286,13 @@ class QRGeneratorPro(ctk.CTk):
         ctk.CTkLabel(f_url, text="Enter URL", text_color=TEXT_MD,
                      font=ctk.CTkFont(size=12)).grid(row=0, column=0, sticky="w",
                                                       padx=16, pady=(14, 4))
-        self.entry_url = ctk.CTkEntry(f_url, placeholder_text="https://...",
-                                      height=44, corner_radius=10,
-                                      border_width=1, border_color=BORDER,
-                                      fg_color="#F8FAFF",
-                                      font=ctk.CTkFont(size=13))
+        self.entry_url = ctk.CTkEntry(
+            f_url, placeholder_text="https://example.com",
+            height=48, corner_radius=8,
+            border_width=1, border_color="#000000",
+            fg_color="#eff4ff",
+            text_color=TEXT_DK,
+            font=ctk.CTkFont(size=14))
         self.entry_url.insert(0, "https://qrpro.io/workspace")
         self.entry_url.grid(row=1, column=0, sticky="ew", **pad)
         self.entry_url.bind("<KeyRelease>", self._generate_qr)
@@ -303,10 +305,12 @@ class QRGeneratorPro(ctk.CTk):
         ctk.CTkLabel(f_txt, text="Enter Text", text_color=TEXT_MD,
                      font=ctk.CTkFont(size=12)).grid(row=0, column=0, sticky="w",
                                                       padx=16, pady=(14, 4))
-        self.entry_txt = ctk.CTkTextbox(f_txt, height=90, corner_radius=10,
-                                        border_width=1, border_color=BORDER,
-                                        fg_color="#F8FAFF",
-                                        font=ctk.CTkFont(size=13))
+        self.entry_txt = ctk.CTkTextbox(
+            f_txt, height=80, corner_radius=10,
+            border_width=1, border_color="#000000",
+            fg_color="#eff4ff",
+            text_color=TEXT_DK,
+            font=ctk.CTkFont(size=13))
         self.entry_txt.grid(row=1, column=0, sticky="ew", **pad)
         self.entry_txt.bind("<KeyRelease>", self._generate_qr)
         self.input_widgets["Text"] = f_txt
@@ -318,21 +322,23 @@ class QRGeneratorPro(ctk.CTk):
         ctk.CTkLabel(f_eml, text="Email Address", text_color=TEXT_MD,
                      font=ctk.CTkFont(size=12)).grid(row=0, column=0, sticky="w",
                                                       padx=16, pady=(14, 4))
-        self.entry_eml = ctk.CTkEntry(f_eml, placeholder_text="hello@example.com",
-                                      height=44, corner_radius=10,
-                                      border_width=1, border_color=BORDER,
-                                      fg_color="#F8FAFF",
-                                      font=ctk.CTkFont(size=13))
+        self.entry_eml = ctk.CTkEntry(
+            f_eml, placeholder_text="hello@example.com",
+            height=42, corner_radius=10,
+            border_width=1, border_color="#000000",
+            fg_color="#eff4ff", text_color=TEXT_DK,
+            font=ctk.CTkFont(size=13))
         self.entry_eml.grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 8))
         self.entry_eml.bind("<KeyRelease>", self._generate_qr)
         ctk.CTkLabel(f_eml, text="Subject", text_color=TEXT_MD,
                      font=ctk.CTkFont(size=12)).grid(row=2, column=0, sticky="w",
                                                       padx=16, pady=(0, 4))
-        self.entry_sub = ctk.CTkEntry(f_eml, placeholder_text="Subject line...",
-                                      height=44, corner_radius=10,
-                                      border_width=1, border_color=BORDER,
-                                      fg_color="#F8FAFF",
-                                      font=ctk.CTkFont(size=13))
+        self.entry_sub = ctk.CTkEntry(
+            f_eml, placeholder_text="Subject line...",
+            height=42, corner_radius=10,
+            border_width=1, border_color="#000000",
+            fg_color="#eff4ff", text_color=TEXT_DK,
+            font=ctk.CTkFont(size=13))
         self.entry_sub.grid(row=3, column=0, sticky="ew", **pad)
         self.entry_sub.bind("<KeyRelease>", self._generate_qr)
         self.input_widgets["Email"] = f_eml
@@ -344,22 +350,24 @@ class QRGeneratorPro(ctk.CTk):
         ctk.CTkLabel(f_wifi, text="Network Name (SSID)", text_color=TEXT_MD,
                      font=ctk.CTkFont(size=12)).grid(row=0, column=0, sticky="w",
                                                       padx=16, pady=(14, 4))
-        self.entry_ssid = ctk.CTkEntry(f_wifi, placeholder_text="WiFi Name",
-                                       height=44, corner_radius=10,
-                                       border_width=1, border_color=BORDER,
-                                       fg_color="#F8FAFF",
-                                       font=ctk.CTkFont(size=13))
+        self.entry_ssid = ctk.CTkEntry(
+            f_wifi, placeholder_text="MyNetwork",
+            height=42, corner_radius=10,
+            border_width=1, border_color="#000000",
+            fg_color="#eff4ff", text_color=TEXT_DK,
+            font=ctk.CTkFont(size=13))
         self.entry_ssid.grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 8))
         self.entry_ssid.bind("<KeyRelease>", self._generate_qr)
         ctk.CTkLabel(f_wifi, text="Password", text_color=TEXT_MD,
                      font=ctk.CTkFont(size=12)).grid(row=2, column=0, sticky="w",
                                                       padx=16, pady=(0, 4))
-        self.entry_pass = ctk.CTkEntry(f_wifi, show="*",
-                                       placeholder_text="Password",
-                                       height=44, corner_radius=10,
-                                       border_width=1, border_color=BORDER,
-                                       fg_color="#F8FAFF",
-                                       font=ctk.CTkFont(size=13))
+        self.entry_pass = ctk.CTkEntry(
+            f_wifi, show="*",
+            placeholder_text="Password",
+            height=42, corner_radius=10,
+            border_width=1, border_color="#000000",
+            fg_color="#eff4ff", text_color=TEXT_DK,
+            font=ctk.CTkFont(size=13))
         self.entry_pass.grid(row=3, column=0, sticky="ew", padx=16, pady=(0, 8))
         self.entry_pass.bind("<KeyRelease>", self._generate_qr)
         ctk.CTkLabel(f_wifi, text="Security", text_color=TEXT_MD,
@@ -431,62 +439,69 @@ class QRGeneratorPro(ctk.CTk):
 
         # Header
         h = ctk.CTkFrame(right, fg_color="transparent")
-        h.grid(row=0, column=0, sticky="ew", padx=20, pady=(20, 12))
+        h.grid(row=0, column=0, sticky="ew", padx=24, pady=(20, 16))
         ctk.CTkLabel(h, text="Live Preview",
-                     font=ctk.CTkFont(size=16, weight="bold"),
+                     font=ctk.CTkFont(size=20, weight="bold"),
                      text_color=TEXT_DK).pack(side="left")
         ctk.CTkLabel(h, text="● Synced",
-                     fg_color="#DCFCE7", text_color="#16A34A",
-                     corner_radius=20, padx=10,
-                     font=ctk.CTkFont(size=11, weight="bold")).pack(side="right")
+                     fg_color="#dcfce7", text_color="#15803d",
+                     corner_radius=12, padx=12, pady=4,
+                     font=ctk.CTkFont(size=12, weight="bold")).pack(side="right")
 
-        # QR Display Area — blue gradient bg
-        disp_outer = ctk.CTkFrame(right, fg_color="#3B5BDB", corner_radius=12)
-        disp_outer.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 16))
+        # QR Display Area
+        # Outer white container
+        disp_outer = ctk.CTkFrame(right, fg_color=CARD_BG, corner_radius=16,
+                                  border_width=1, border_color=BORDER)
+        disp_outer.grid(row=1, column=0, sticky="nsew", padx=24, pady=(0, 20))
         disp_outer.grid_rowconfigure(0, weight=1)
         disp_outer.grid_columnconfigure(0, weight=1)
 
-        disp_inner = ctk.CTkFrame(disp_outer, fg_color=CARD_BG, corner_radius=12)
-        disp_inner.grid(row=0, column=0, padx=20, pady=20, sticky="nsew")
+        # Inner container (now transparent to show white)
+        disp_inner = ctk.CTkFrame(disp_outer, fg_color="transparent")
+        disp_inner.grid(row=0, column=0, padx=16, pady=16, sticky="nsew")
+        disp_inner.grid_rowconfigure(0, weight=1)
+        disp_inner.grid_columnconfigure(0, weight=1)
 
-        self.qr_display = ctk.CTkLabel(disp_inner, text="")
-        self.qr_display.pack(expand=True, padx=20, pady=20)
+        self.qr_display = ctk.CTkLabel(
+            disp_inner, text="",
+            font=ctk.CTkFont(size=14), text_color=TEXT_LT)
+        self.qr_display.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
 
         # Download Buttons
         btn_row = ctk.CTkFrame(right, fg_color="transparent")
-        btn_row.grid(row=2, column=0, sticky="ew", padx=20, pady=(0, 8))
+        btn_row.grid(row=2, column=0, sticky="ew", padx=24, pady=(0, 12))
         btn_row.grid_columnconfigure(0, weight=1)
         btn_row.grid_columnconfigure(1, weight=1)
 
         ctk.CTkButton(btn_row, text="⬇  PNG Image",
                       fg_color=BLUE, hover_color=BLUE_DK,
-                      text_color="#FFFFFF", height=42, corner_radius=8,
-                      font=ctk.CTkFont(size=13, weight="bold"),
+                      text_color="#ffffff", height=48, corner_radius=12,
+                      font=ctk.CTkFont(size=14, weight="bold"),
                       command=self._save_png).grid(row=0, column=0,
-                                                    padx=(0, 6), sticky="ew")
+                                                    padx=(0, 8), sticky="ew")
 
         ctk.CTkButton(btn_row, text="⬇  SVG Vector",
-                      fg_color=BLUE_LT, hover_color="#DBEAFE",
-                      text_color=BLUE, height=42, corner_radius=8,
-                      font=ctk.CTkFont(size=13, weight="bold"),
+                      fg_color="#dae2fd", hover_color="#d3e4fe",
+                      text_color="#5c647a", height=48, corner_radius=12,
+                      font=ctk.CTkFont(size=14, weight="bold"),
                       command=self._save_svg).grid(row=0, column=1,
-                                                    padx=(6, 0), sticky="ew")
+                                                    padx=(8, 0), sticky="ew")
 
         ctk.CTkButton(right, text="⎙  Print Directly",
-                      fg_color=CARD_BG, hover_color="#F8FAFC",
+                      fg_color="transparent", hover_color="#eff4ff",
                       text_color=TEXT_MD, border_width=1, border_color=BORDER,
-                      height=42, corner_radius=8,
-                      font=ctk.CTkFont(size=13),
+                      height=44, corner_radius=12,
+                      font=ctk.CTkFont(size=14),
                       command=self._print).grid(row=3, column=0, sticky="ew",
-                                                 padx=20, pady=(0, 12))
+                                                 padx=24, pady=(0, 20))
 
-        # Accuracy badge
+        # Accuracy badge (Moved to bottom)
         acc = ctk.CTkFrame(right, fg_color="transparent")
-        acc.grid(row=4, column=0, sticky="ew", padx=20, pady=(0, 20))
+        acc.grid(row=4, column=0, sticky="ew", padx=24, pady=(0, 20))
         ctk.CTkLabel(acc, text="Scan Accuracy",
-                     font=ctk.CTkFont(size=11), text_color=TEXT_LT).pack(anchor="w")
+                     font=ctk.CTkFont(size=12), text_color=TEXT_LT).pack(anchor="w")
         self.status_lbl = ctk.CTkLabel(acc, text="High (Level H)",
-                                        font=ctk.CTkFont(size=13, weight="bold"),
+                                        font=ctk.CTkFont(size=14, weight="bold"),
                                         text_color="#16A34A")
         self.status_lbl.pack(anchor="w")
 
@@ -561,8 +576,11 @@ class QRGeneratorPro(ctk.CTk):
     def _generate_qr(self, *_):
         data = self._get_data()
         if not data:
-            self.qr_display.configure(image="", text="No data")
-            self.status_lbl.configure(text="No data entered", text_color="#EF4444")
+            self.qr_display.configure(image="", text="No data — type something above",
+                                       font=ctk.CTkFont(size=12),
+                                       text_color=TEXT_LT)
+            self.status_lbl.configure(text="Waiting for input...",
+                                       text_color=TEXT_LT)
             self.qr_img = None
             return
         try:
@@ -597,7 +615,7 @@ class QRGeneratorPro(ctk.CTk):
                     pass
             self.qr_img = img
             thumb = img.copy()
-            thumb.thumbnail((260, 260), RESAMPLE)
+            thumb.thumbnail((250, 250), RESAMPLE)
             ctk_img = ctk.CTkImage(light_image=thumb, dark_image=thumb,
                                    size=(thumb.width, thumb.height))
             self.qr_display.configure(image=ctk_img, text="")
