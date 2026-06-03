@@ -12,49 +12,39 @@ from .widgets import PillSegButton, AccordionCard
 RESAMPLE = getattr(Image, "Resampling", Image).LANCZOS
 
 
-def _make_colors_icon(size=22):
+def _make_colors_icon(size=24):
     """Draw a paint-palette-like icon with three coloured circles."""
-    S = 64
+    S = 256
     img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    d.ellipse([2, 20, 38, 56], fill="#4285F4")   # blue
-    d.ellipse([26, 2, 62, 38], fill="#EA4335")   # red
-    d.ellipse([26, 26, 62, 62], fill="#34A853")  # green
-    img = img.resize((size * 4, size * 4), RESAMPLE)
-    img = img.resize((size, size), RESAMPLE)
+    d.ellipse([8, 80, 152, 224], fill="#4285F4")   # blue
+    d.ellipse([104, 8, 248, 152], fill="#EA4335")   # red
+    d.ellipse([104, 104, 248, 248], fill="#34A853")  # green
     return ctk.CTkImage(light_image=img, dark_image=img, size=(size, size))
 
 
-def _make_design_icon(size=22):
+def _make_design_icon(size=24):
     """Draw a 2x2 grid of rounded squares."""
-    S = 64
+    S = 256
     img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    c = "#004ac6"
-    r = 5
+    c, r = "#004ac6", 20
     for row in range(2):
         for col in range(2):
-            x, y = 4 + col * 32, 4 + row * 32
-            d.rounded_rectangle([x, y, x + 24, y + 24], radius=r, fill=c)
-    img = img.resize((size * 4, size * 4), RESAMPLE)
-    img = img.resize((size, size), RESAMPLE)
+            x, y = 12 + col * 124, 12 + row * 124
+            d.rounded_rectangle([x, y, x + 108, y + 108], radius=r, fill=c)
     return ctk.CTkImage(light_image=img, dark_image=img, size=(size, size))
 
 
-def _make_logo_icon(size=22):
+def _make_logo_icon(size=24):
     """Draw a simple picture-frame icon."""
-    S = 64
+    S = 256
     img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     c = "#004ac6"
-    # Frame border
-    d.rounded_rectangle([4, 8, 60, 56], radius=6, outline=c, width=4, fill=None)
-    # Sun circle
-    d.ellipse([12, 16, 26, 30], fill=c)
-    # Mountain / landscape
-    d.polygon([(8, 50), (24, 30), (38, 44), (50, 32), (60, 50)], fill=c)
-    img = img.resize((size * 4, size * 4), RESAMPLE)
-    img = img.resize((size, size), RESAMPLE)
+    d.rounded_rectangle([16, 32, 240, 224], radius=24, outline=c, width=16, fill=None)
+    d.ellipse([48, 64, 108, 124], fill=c)
+    d.polygon([(32, 200), (96, 120), (152, 176), (200, 128), (240, 200)], fill=c)
     return ctk.CTkImage(light_image=img, dark_image=img, size=(size, size))
 
 class TopNavBar(ctk.CTkFrame):
@@ -73,14 +63,14 @@ class TopNavBar(ctk.CTkFrame):
         nav.grid(row=0, column=2, padx=20, sticky="e")
 
         self.btn_create = ctk.CTkButton(
-            nav, text="⊞  Create", height=34, corner_radius=8,
+            nav, text="Create", height=34, corner_radius=8,
             fg_color=BLUE, text_color="#FFFFFF", hover_color=BLUE_DK,
             font=ctk.CTkFont(size=13, weight="bold"),
             command=on_create_click)
         self.btn_create.pack(side="left", padx=(0, 8))
 
         self.btn_history = ctk.CTkButton(
-            nav, text="↺  History", height=34, corner_radius=8,
+            nav, text="History", height=34, corner_radius=8,
             fg_color="transparent", text_color=TEXT_MD,
             hover_color="#F1F5F9", border_width=1, border_color=BORDER,
             font=ctk.CTkFont(size=13),
@@ -209,7 +199,7 @@ class WorkspacePanel(ctk.CTkScrollableFrame):
     def _build_logo_content(self):
         parent = self.acc_logo.content
         parent.grid_columnconfigure(0, weight=1)
-        self.logo_btn = ctk.CTkButton(parent, text="⬆  Drop logo here or click to browse\nPNG · SVG · JPG", fg_color="#F8FAFF", text_color=TEXT_LT, hover_color="#EEF2FF", border_width=1, border_color=BORDER, height=80, corner_radius=10, command=self._upload_logo)
+        self.logo_btn = ctk.CTkButton(parent, text="Upload Logo\nPNG  SVG  JPG", fg_color="#F8FAFF", text_color=TEXT_LT, hover_color="#EEF2FF", border_width=1, border_color=BORDER, height=80, corner_radius=10, command=self._upload_logo)
         self.logo_btn.grid(row=0, column=0, sticky="ew", padx=12, pady=(4, 4))
         self.logo_clear = ctk.CTkButton(parent, text="Remove Logo", fg_color="transparent", text_color="#EF4444", hover_color="#FEE2E2", height=28, font=ctk.CTkFont(size=11), command=self._clear_logo)
 
@@ -295,16 +285,16 @@ class PreviewPanel(ctk.CTkFrame):
         btn_row.grid_columnconfigure(0, weight=1)
         btn_row.grid_columnconfigure(1, weight=1)
 
-        ctk.CTkButton(btn_row, text="⬇  PNG Image", fg_color=BLUE, hover_color=BLUE_DK, text_color="#ffffff", height=48, corner_radius=12, font=ctk.CTkFont(size=14, weight="bold"), command=self.app.save_png).grid(row=0, column=0, padx=(0, 8), sticky="ew")
-        ctk.CTkButton(btn_row, text="⬇  SVG Vector", fg_color="#dae2fd", hover_color="#d3e4fe", text_color="#5c647a", height=48, corner_radius=12, font=ctk.CTkFont(size=14, weight="bold"), command=self.app.save_svg).grid(row=0, column=1, padx=(8, 0), sticky="ew")
+        ctk.CTkButton(btn_row, text="Download PNG", fg_color=BLUE, hover_color=BLUE_DK, text_color="#ffffff", height=48, corner_radius=12, font=ctk.CTkFont(size=14, weight="bold"), command=self.app.save_png).grid(row=0, column=0, padx=(0, 8), sticky="ew")
+        ctk.CTkButton(btn_row, text="Download SVG", fg_color="#dae2fd", hover_color="#d3e4fe", text_color="#5c647a", height=48, corner_radius=12, font=ctk.CTkFont(size=14, weight="bold"), command=self.app.save_svg).grid(row=0, column=1, padx=(8, 0), sticky="ew")
 
         btn_row2 = ctk.CTkFrame(self, fg_color="transparent")
         btn_row2.grid(row=3, column=0, sticky="ew", padx=24, pady=(0, 20))
         btn_row2.grid_columnconfigure(0, weight=1)
         btn_row2.grid_columnconfigure(1, weight=1)
 
-        ctk.CTkButton(btn_row2, text="📋  Copy Image", fg_color="transparent", hover_color="#eff4ff", text_color=TEXT_MD, border_width=1, border_color=BORDER, height=44, corner_radius=12, font=ctk.CTkFont(size=14), command=self.app.copy_image).grid(row=0, column=0, padx=(0, 8), sticky="ew")
-        ctk.CTkButton(btn_row2, text="⎙  Print Directly", fg_color="transparent", hover_color="#eff4ff", text_color=TEXT_MD, border_width=1, border_color=BORDER, height=44, corner_radius=12, font=ctk.CTkFont(size=14), command=self.app.print_image).grid(row=0, column=1, padx=(8, 0), sticky="ew")
+        ctk.CTkButton(btn_row2, text="Copy Image", fg_color="transparent", hover_color="#eff4ff", text_color=TEXT_MD, border_width=1, border_color=BORDER, height=44, corner_radius=12, font=ctk.CTkFont(size=14), command=self.app.copy_image).grid(row=0, column=0, padx=(0, 8), sticky="ew")
+        ctk.CTkButton(btn_row2, text="Print", fg_color="transparent", hover_color="#eff4ff", text_color=TEXT_MD, border_width=1, border_color=BORDER, height=44, corner_radius=12, font=ctk.CTkFont(size=14), command=self.app.print_image).grid(row=0, column=1, padx=(8, 0), sticky="ew")
 
         acc = ctk.CTkFrame(self, fg_color="transparent")
         acc.grid(row=4, column=0, sticky="ew", padx=24, pady=(0, 20))
