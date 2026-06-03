@@ -1,14 +1,14 @@
 @echo off
 REM Build script for Windows
 
-echo. Building QR Code Generator for Windows...
+echo Building QR Generator Pro for Windows...
 
-pyinstaller --onefile ^
-  --windowed ^
-  --name "QR Code Generator" ^
-  --icon=icon.ico ^
-  --add-data ".;." ^
-  qr_generator.py
+for /f "tokens=*" %%i in ('python -c "import customtkinter; import os; print(os.path.dirname(customtkinter.__file__))"') do set CTK_PATH=%%i
 
-echo. Build complete! Executable is in: dist\QR Code Generator.exe
-echo. Ready to distribute!
+python -m PyInstaller --noconfirm --windowed ^
+  --name "QR Generator Pro" ^
+  --add-data "%CTK_PATH%;customtkinter/" ^
+  main.py
+
+echo Build complete! Executable is in: dist\QR Generator Pro
+echo Ready to distribute!

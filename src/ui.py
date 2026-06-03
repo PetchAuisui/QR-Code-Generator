@@ -1,4 +1,5 @@
 import os
+import sys
 from tkinter import colorchooser, filedialog, messagebox
 import customtkinter as ctk
 from PIL import Image
@@ -342,9 +343,120 @@ class HistoryPanel(ctk.CTkFrame):
         ctk.CTkButton(af, text="🗑", width=32, height=28, corner_radius=6, fg_color="transparent", text_color="#EF4444", hover_color="#FEE2E2", command=_delete).pack(side="right")
 
 
+def setup_macos_shortcuts(root):
+    if sys.platform == "darwin":
+        from tkinter import Menu
+
+        class DummyEvent:
+            def __init__(self, widget):
+                self.widget = widget
+
+        def select_all(event):
+            if not event or not event.widget: return "break"
+            widget = event.widget
+            if hasattr(widget, "select_range"):
+                widget.select_range(0, "end")
+                widget.icursor("end")
+            elif hasattr(widget, "tag_add"):
+                widget.tag_add("sel", "1.0", "end-1c")
+            return "break"
+
+        def copy_text(event):
+            if not event or not event.widget: return "break"
+            widget = event.widget
+            try:
+                text = ""
+                if hasattr(widget, "index") and hasattr(widget, "get"):
+                    # Entry widget
+                    try:
+                        first = widget.index("sel.first")
+                        last = widget.index("sel.last")
+                        text = widget.get()[first:last]
+                    except Exception:
+                        pass
+                elif hasattr(widget, "get"):
+                    # Text widget
+                    try:
+                        text = widget.get("sel.first", "sel.last")
+                    except Exception:
+                        pass
+                if text:
+                    widget.clipboard_clear()
+                    widget.clipboard_append(text)
+            except Exception:
+                widget.event_generate("<<Copy>>")
+            return "break"
+
+        def cut_text(event):
+            if not event or not event.widget: return "break"
+            widget = event.widget
+            try:
+                copy_text(event)
+                try:
+                    widget.delete("sel.first", "sel.last")
+                except Exception:
+                    pass
+            except Exception:
+                widget.event_generate("<<Cut>>")
+            return "break"
+
+        def paste_text(event):
+            if not event or not event.widget: return "break"
+            widget = event.widget
+            try:
+                text = widget.clipboard_get()
+                if text:
+                    try:
+                        widget.delete("sel.first", "sel.last")
+                    except Exception:
+                        pass
+                    widget.insert("insert", text)
+            except Exception:
+                widget.event_generate("<<Paste>>")
+            return "break"
+
+        # Bind to Entry and Text classes globally (English Layout)
+        root.bind_class("Entry", "<Command-c>", copy_text)
+        root.bind_class("Entry", "<Command-v>", paste_text)
+        root.bind_class("Entry", "<Command-x>", cut_text)
+        root.bind_class("Entry", "<Command-a>", select_all)
+        
+        root.bind_class("Text", "<Command-c>", copy_text)
+        root.bind_class("Text", "<Command-v>", paste_text)
+        root.bind_class("Text", "<Command-x>", cut_text)
+        root.bind_class("Text", "<Command-a>", select_all)
+
+        # Bind to Entry and Text classes globally (Thai Layout)
+        root.bind_class("Entry", "<Command-Thai_saraae>", copy_text)
+        root.bind_class("Entry", "<Command-Thai_oang>", paste_text)
+        root.bind_class("Entry", "<Command-Thai_popla>", cut_text)
+        root.bind_class("Entry", "<Command-Thai_fofan>", select_all)
+        
+        root.bind_class("Text", "<Command-Thai_saraae>", copy_text)
+        root.bind_class("Text", "<Command-Thai_oang>", paste_text)
+        root.bind_class("Text", "<Command-Thai_popla>", cut_text)
+        root.bind_class("Text", "<Command-Thai_fofan>", select_all)
+
+        # Create macOS Application Menu
+        try:
+            menubar = Menu(root)
+            edit_menu = Menu(menubar, tearoff=0)
+            
+            edit_menu.add_command(label="Cut", accelerator="Cmd+X", command=lambda: cut_text(DummyEvent(root.focus_get())))
+            edit_menu.add_command(label="Copy", accelerator="Cmd+C", command=lambda: copy_text(DummyEvent(root.focus_get())))
+            edit_menu.add_command(label="Paste", accelerator="Cmd+V", command=lambda: paste_text(DummyEvent(root.focus_get())))
+            edit_menu.add_command(label="Select All", accelerator="Cmd+A", command=lambda: select_all(DummyEvent(root.focus_get())))
+            
+            menubar.add_cascade(label="Edit", menu=edit_menu)
+            root.config(menu=menubar)
+        except Exception:
+            pass
+
+
 class AppWindow(ctk.CTk):
     def __init__(self):
         super().__init__()
+        setup_macos_shortcuts(self)
         self.title("QR Generator Pro")
         self.geometry("1020x700")
         self.minsize(880, 600)

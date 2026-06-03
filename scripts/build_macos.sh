@@ -1,15 +1,16 @@
 #!/bin/bash
 # Build script for macOS
 
-echo "🍎 Building QR Code Generator for macOS..."
+echo "🍎 Building QR Generator Pro for macOS..."
 
-pyinstaller --onedir \
-  --windowed \
-  --name "QR Code Generator" \
-  --icon=icon.icns \
-  --add-data ".:." \
-  --osx-bundle-identifier=com.qrgenerator.app \
-  qr_generator.py
+# Find customtkinter path
+CTK_PATH=$(python3 -c "import customtkinter; import os; print(os.path.dirname(customtkinter.__file__))")
 
-echo "✅ Build complete! App is in: dist/QR Code Generator.app"
-echo "📦 To distribute, create a DMG file from the dist/ folder"
+python3 -m PyInstaller --noconfirm --windowed \
+  --name "QR Generator Pro" \
+  --icon=assets/icon.icns \
+  --add-data "$CTK_PATH:customtkinter/" \
+  main.py
+
+echo "✅ Build complete! App is in: dist/QR Generator Pro.app"
+echo "📦 To distribute, create a DMG file or zip the app from the dist/ folder"

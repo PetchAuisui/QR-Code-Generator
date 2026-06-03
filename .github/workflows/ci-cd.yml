@@ -2,11 +2,11 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "main", "master", "develop" ]
     tags:
       - 'v*'
   pull_request:
-    branches: [ "main", "master" ]
+    branches: [ "main", "master", "develop" ]
 
 jobs:
   lint:
@@ -54,6 +54,8 @@ jobs:
       run: |
         CTK_PATH=$(python -c "import customtkinter; import os; print(os.path.dirname(customtkinter.__file__))")
         pyinstaller --noconfirm --windowed --name "QR Generator Pro" --icon=assets/icon.icns --add-data "$CTK_PATH:customtkinter/" main.py
+        cd dist
+        zip -r ../QR-Generator-Pro-macOS.zip "QR Generator Pro.app"
 
     - name: Build with PyInstaller (Linux)
       if: matrix.os == 'ubuntu-latest'
@@ -72,7 +74,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: QR-Generator-Pro-macOS
-        path: dist/QR Generator Pro.app
+        path: QR-Generator-Pro-macOS.zip
 
     - name: Upload Artifact (Windows)
       if: matrix.os == 'windows-latest'
@@ -103,13 +105,8 @@ jobs:
           
       - name: Prepare Release Assets
         run: |
-          # The macOS artifact contains the *contents* of the .app folder, 
-          # so we need to recreate the folder structure before zipping.
-          mkdir -p "macOS_build/QR Generator Pro.app"
-          mv artifacts/QR-Generator-Pro-macOS/* "macOS_build/QR Generator Pro.app/"
-          cd macOS_build
-          zip -r ../QR-Generator-Pro-macOS.zip "QR Generator Pro.app"
-          cd ..
+          # Move the macOS zip from the download folder to the root
+          mv artifacts/QR-Generator-Pro-macOS/QR-Generator-Pro-macOS.zip .
           
           # Zip Windows and Linux
           cd artifacts/QR-Generator-Pro-Windows
