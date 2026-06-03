@@ -376,15 +376,18 @@ def setup_macos_shortcuts(root):
         root.bind_class("Text", "<Command-a>", select_all)
 
         # Bind to Entry and Text classes globally (Thai Layout)
-        root.bind_class("Entry", "<Command-Thai_saraae>", copy_text)
-        root.bind_class("Entry", "<Command-Thai_oang>", paste_text)
-        root.bind_class("Entry", "<Command-Thai_popla>", cut_text)
-        root.bind_class("Entry", "<Command-Thai_fofan>", select_all)
-        
-        root.bind_class("Text", "<Command-Thai_saraae>", copy_text)
-        root.bind_class("Text", "<Command-Thai_oang>", paste_text)
-        root.bind_class("Text", "<Command-Thai_popla>", cut_text)
-        root.bind_class("Text", "<Command-Thai_fofan>", select_all)
+        try:
+            root.bind_class("Entry", "<Command-Thai_saraae>", copy_text)
+            root.bind_class("Entry", "<Command-Thai_oang>", paste_text)
+            root.bind_class("Entry", "<Command-Thai_popla>", cut_text)
+            root.bind_class("Entry", "<Command-Thai_fofan>", select_all)
+            
+            root.bind_class("Text", "<Command-Thai_saraae>", copy_text)
+            root.bind_class("Text", "<Command-Thai_oang>", paste_text)
+            root.bind_class("Text", "<Command-Thai_popla>", cut_text)
+            root.bind_class("Text", "<Command-Thai_fofan>", select_all)
+        except Exception:
+            pass
 
         # Create macOS Application Menu
         try:
