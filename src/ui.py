@@ -2,7 +2,7 @@ import os
 import sys
 from tkinter import colorchooser, filedialog, messagebox
 import customtkinter as ctk
-from PIL import Image, ImageTk
+from PIL import Image, ImageDraw, ImageTk
 import shutil
 
 from .config import *
@@ -10,6 +10,52 @@ from .core import QRManager, HistoryManager, ClipboardManager
 from .widgets import PillSegButton, AccordionCard
 
 RESAMPLE = getattr(Image, "Resampling", Image).LANCZOS
+
+
+def _make_colors_icon(size=22):
+    """Draw a paint-palette-like icon with three coloured circles."""
+    S = 64
+    img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.ellipse([2, 20, 38, 56], fill="#4285F4")   # blue
+    d.ellipse([26, 2, 62, 38], fill="#EA4335")   # red
+    d.ellipse([26, 26, 62, 62], fill="#34A853")  # green
+    img = img.resize((size * 4, size * 4), RESAMPLE)
+    img = img.resize((size, size), RESAMPLE)
+    return ctk.CTkImage(light_image=img, dark_image=img, size=(size, size))
+
+
+def _make_design_icon(size=22):
+    """Draw a 2x2 grid of rounded squares."""
+    S = 64
+    img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    c = "#004ac6"
+    r = 5
+    for row in range(2):
+        for col in range(2):
+            x, y = 4 + col * 32, 4 + row * 32
+            d.rounded_rectangle([x, y, x + 24, y + 24], radius=r, fill=c)
+    img = img.resize((size * 4, size * 4), RESAMPLE)
+    img = img.resize((size, size), RESAMPLE)
+    return ctk.CTkImage(light_image=img, dark_image=img, size=(size, size))
+
+
+def _make_logo_icon(size=22):
+    """Draw a simple picture-frame icon."""
+    S = 64
+    img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    c = "#004ac6"
+    # Frame border
+    d.rounded_rectangle([4, 8, 60, 56], radius=6, outline=c, width=4, fill=None)
+    # Sun circle
+    d.ellipse([12, 16, 26, 30], fill=c)
+    # Mountain / landscape
+    d.polygon([(8, 50), (24, 30), (38, 44), (50, 32), (60, 50)], fill=c)
+    img = img.resize((size * 4, size * 4), RESAMPLE)
+    img = img.resize((size, size), RESAMPLE)
+    return ctk.CTkImage(light_image=img, dark_image=img, size=(size, size))
 
 class TopNavBar(ctk.CTkFrame):
     def __init__(self, master, on_create_click, on_history_click, **kwargs):
@@ -70,15 +116,19 @@ class WorkspacePanel(ctk.CTkScrollableFrame):
         self.input_widgets = {}
         self._build_input_fields()
 
-        self.acc_colors = AccordionCard(self, title="Colors", icon="🎨", expanded=False)
+        _icon_colors = _make_colors_icon(22)
+        _icon_design = _make_design_icon(22)
+        _icon_logo   = _make_logo_icon(22)
+
+        self.acc_colors = AccordionCard(self, title="Colors", icon_image=_icon_colors, expanded=False)
         self.acc_colors.grid(row=2, column=0, sticky="ew", padx=2, pady=(0, 16))
         self._build_colors_content()
 
-        self.acc_design = AccordionCard(self, title="Design", icon="⊞", expanded=False)
+        self.acc_design = AccordionCard(self, title="Design", icon_image=_icon_design, expanded=False)
         self.acc_design.grid(row=3, column=0, sticky="ew", padx=2, pady=(0, 16))
         self._build_design_content()
 
-        self.acc_logo = AccordionCard(self, title="Logo", icon="🖼️", expanded=False)
+        self.acc_logo = AccordionCard(self, title="Logo", icon_image=_icon_logo, expanded=False)
         self.acc_logo.grid(row=4, column=0, sticky="ew", padx=2, pady=(0, 16))
         self._build_logo_content()
 

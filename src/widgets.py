@@ -43,7 +43,7 @@ class PillSegButton(ctk.CTkFrame):
 
 class AccordionCard(ctk.CTkFrame):
     """Collapsible card with icon + title + chevron."""
-    def __init__(self, master, title, icon="🎨", expanded=False, **kwargs):
+    def __init__(self, master, title, icon="", icon_image=None, expanded=False, **kwargs):
         super().__init__(master, fg_color=CARD_BG, corner_radius=12,
                          border_width=1, border_color=BORDER, **kwargs)
         self._expanded = expanded
@@ -53,7 +53,10 @@ class AccordionCard(ctk.CTkFrame):
         header.pack(fill="x", padx=20, pady=20)
         header.grid_columnconfigure(1, weight=1)
 
-        self.icon_lbl = ctk.CTkLabel(header, text=icon, text_color=BLUE, font=ctk.CTkFont(size=20))
+        if icon_image is not None:
+            self.icon_lbl = ctk.CTkLabel(header, text="", image=icon_image)
+        else:
+            self.icon_lbl = ctk.CTkLabel(header, text=icon, text_color=BLUE, font=ctk.CTkFont(size=20))
         self.icon_lbl.grid(row=0, column=0, padx=(0, 12))
 
         self.title_lbl = ctk.CTkLabel(header, text=title, text_color=TEXT_DK,
