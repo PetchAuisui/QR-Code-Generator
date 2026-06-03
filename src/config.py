@@ -2,9 +2,6 @@ import os
 
 # ── Paths ──
 BASE_DIR = os.path.expanduser("~/Library/Application Support/QRGeneratorPro")
-HISTORY_FILE = os.path.join(BASE_DIR, "history.json")
-HISTORY_DIR = os.path.join(BASE_DIR, "history_images")
-os.makedirs(HISTORY_DIR, exist_ok=True)
 
 # ── Colors ──
 BG       = "#f8f9ff"  # background

@@ -1,12 +1,15 @@
 import os
 import sys
+import subprocess
+import tempfile
+import atexit
 from tkinter import colorchooser, filedialog, messagebox
 import customtkinter as ctk
 from PIL import Image, ImageDraw, ImageTk
 import shutil
 
 from .config import *
-from .core import QRManager, HistoryManager, ClipboardManager
+from .core import QRManager, ClipboardManager
 from .widgets import PillSegButton, AccordionCard
 
 RESAMPLE = getattr(Image, "Resampling", Image).LANCZOS
@@ -48,42 +51,19 @@ def _make_logo_icon(size=24):
     return ctk.CTkImage(light_image=img, dark_image=img, size=(size, size))
 
 class TopNavBar(ctk.CTkFrame):
-    def __init__(self, master, on_create_click, on_history_click, **kwargs):
+    def __init__(self, master, **kwargs):
         super().__init__(master, fg_color=CARD_BG, corner_radius=0, border_width=1, border_color=BORDER, height=56, **kwargs)
-        self.grid_columnconfigure(1, weight=1)
+        self.grid_columnconfigure(0, weight=1)
         self.grid_propagate(False)
-        
+
         sep = ctk.CTkFrame(self, fg_color=BORDER, height=1, corner_radius=0)
         sep.grid(row=0, column=0, sticky="ews")
 
         ctk.CTkLabel(self, text="QR Pro", font=ctk.CTkFont(size=18, weight="bold"), text_color=BLUE)\
             .grid(row=0, column=0, padx=28, pady=14, sticky="w")
 
-        nav = ctk.CTkFrame(self, fg_color="transparent")
-        nav.grid(row=0, column=2, padx=20, sticky="e")
-
-        self.btn_create = ctk.CTkButton(
-            nav, text="Create", height=34, corner_radius=8,
-            fg_color=BLUE, text_color="#FFFFFF", hover_color=BLUE_DK,
-            font=ctk.CTkFont(size=13, weight="bold"),
-            command=on_create_click)
-        self.btn_create.pack(side="left", padx=(0, 8))
-
-        self.btn_history = ctk.CTkButton(
-            nav, text="History", height=34, corner_radius=8,
-            fg_color="transparent", text_color=TEXT_MD,
-            hover_color="#F1F5F9", border_width=1, border_color=BORDER,
-            font=ctk.CTkFont(size=13),
-            command=on_history_click)
-        self.btn_history.pack(side="left")
-
     def set_active(self, page_name):
-        if page_name == "create":
-            self.btn_create.configure(fg_color=BLUE, text_color="#FFFFFF", font=ctk.CTkFont(size=13, weight="bold"))
-            self.btn_history.configure(fg_color="transparent", text_color=TEXT_MD, font=ctk.CTkFont(size=13))
-        else:
-            self.btn_history.configure(fg_color=BLUE, text_color="#FFFFFF", font=ctk.CTkFont(size=13, weight="bold"))
-            self.btn_create.configure(fg_color="transparent", text_color=TEXT_MD, font=ctk.CTkFont(size=13))
+        pass
 
 
 class WorkspacePanel(ctk.CTkScrollableFrame):
@@ -295,100 +275,22 @@ class PreviewPanel(ctk.CTkFrame):
 
         ctk.CTkButton(btn_row2, text="Copy Image", fg_color="transparent", hover_color="#eff4ff", text_color=TEXT_MD, border_width=1, border_color=BORDER, height=44, corner_radius=12, font=ctk.CTkFont(size=14), command=self.app.copy_image).grid(row=0, column=0, padx=(0, 8), sticky="ew")
         ctk.CTkButton(btn_row2, text="Print", fg_color="transparent", hover_color="#eff4ff", text_color=TEXT_MD, border_width=1, border_color=BORDER, height=44, corner_radius=12, font=ctk.CTkFont(size=14), command=self.app.print_image).grid(row=0, column=1, padx=(8, 0), sticky="ew")
-
-        acc = ctk.CTkFrame(self, fg_color="transparent")
-        acc.grid(row=4, column=0, sticky="ew", padx=24, pady=(0, 20))
-        ctk.CTkLabel(acc, text="Scan Accuracy", font=ctk.CTkFont(size=12), text_color=TEXT_LT).pack(anchor="w")
-        self.status_lbl = ctk.CTkLabel(acc, text="High (Level H)", font=ctk.CTkFont(size=14, weight="bold"), text_color="#16A34A")
-        self.status_lbl.pack(anchor="w")
+        # End of PreviewPanel layout
 
     def update_image(self, img):
         if not img:
-            self.qr_display.configure(image="", text="No data — type something above")
-            self.status_lbl.configure(text="Waiting for input...", text_color=TEXT_LT)
+            self.qr_display.configure(image="", text="Waiting for input...")
             return
 
         thumb = img.copy()
         thumb.thumbnail((250, 250), RESAMPLE)
         ctk_img = ctk.CTkImage(light_image=thumb, dark_image=thumb, size=(thumb.width, thumb.height))
         self.qr_display.configure(image=ctk_img, text="")
-        self.status_lbl.configure(text=f"High (Level H)  ·  {img.width}×{img.height} px", text_color="#16A34A")
 
     def set_error(self, err_msg):
-        self.status_lbl.configure(text=f"Error: {err_msg}", text_color="#EF4444")
+        from tkinter import messagebox
+        messagebox.showerror("Error", err_msg)
         self.qr_display.configure(image="", text="Error generating QR code")
-
-
-class HistoryPanel(ctk.CTkFrame):
-    def __init__(self, master, app_controller, **kwargs):
-        super().__init__(master, fg_color=BG, **kwargs)
-        self.app = app_controller
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(1, weight=1)
-
-        h_top = ctk.CTkFrame(self, fg_color="transparent")
-        h_top.grid(row=0, column=0, sticky="ew", pady=(0, 16))
-        ctk.CTkLabel(h_top, text="Generation History", font=ctk.CTkFont(size=22, weight="bold"), text_color=TEXT_DK).pack(side="left")
-        ctk.CTkLabel(h_top, text="Review and manage your recently generated QR codes.", font=ctk.CTkFont(size=13), text_color=TEXT_LT).pack(side="left", padx=12, pady=(4, 0))
-
-        self.hist_scroll = ctk.CTkScrollableFrame(self, fg_color=BG)
-        self.hist_scroll.grid(row=1, column=0, sticky="nsew")
-        # Force canvas bg color on Windows
-        if hasattr(self.hist_scroll, "_canvas"):
-            self.hist_scroll._canvas.configure(bg=BG)
-
-    def refresh(self):
-        for w in self.hist_scroll.winfo_children():
-            w.destroy()
-        
-        history = HistoryManager.load_history()
-        if not history:
-            ctk.CTkLabel(self.hist_scroll, text="No history yet.", text_color=TEXT_LT, font=ctk.CTkFont(size=14)).pack(pady=60)
-            return
-
-        for i in range(3):
-            self.hist_scroll.grid_columnconfigure(i, weight=1)
-        
-        for idx, item in enumerate(history):
-            self._make_card(item, idx // 3, idx % 3)
-
-    def _make_card(self, item, row, col):
-        card = ctk.CTkFrame(self.hist_scroll, fg_color=CARD_BG, corner_radius=12, border_width=1, border_color=BORDER)
-        card.grid(row=row, column=col, padx=8, pady=8, sticky="nsew")
-
-        img_path = os.path.join(HISTORY_DIR, item.get("image", ""))
-        if os.path.exists(img_path):
-            try:
-                thumb = Image.open(img_path)
-                ci = ctk.CTkImage(light_image=thumb, dark_image=thumb, size=(56, 56))
-                ctk.CTkLabel(card, image=ci, text="").grid(row=0, column=0, rowspan=2, padx=14, pady=14, sticky="w")
-            except Exception:
-                pass
-
-        meta = ctk.CTkFrame(card, fg_color="transparent")
-        meta.grid(row=0, column=1, sticky="nsew", padx=(0, 12), pady=(14, 4))
-        ctk.CTkLabel(meta, text=item.get("type", "QR"), fg_color=BLUE_LT, text_color=BLUE, corner_radius=4, padx=6, font=ctk.CTkFont(size=10, weight="bold")).pack(side="left")
-        ctk.CTkLabel(meta, text=item.get("date", ""), text_color=TEXT_LT, font=ctk.CTkFont(size=10)).pack(side="right")
-
-        short = item.get("data", "")
-        if len(short) > 26: short = short[:23] + "..."
-        ctk.CTkLabel(card, text=short, text_color=TEXT_DK, font=ctk.CTkFont(size=12, weight="bold"), anchor="w").grid(row=1, column=1, sticky="w", padx=(0, 12), pady=(0, 14))
-
-        af = ctk.CTkFrame(card, fg_color="transparent")
-        af.grid(row=2, column=0, columnspan=2, sticky="ew", padx=12, pady=(0, 12))
-        af.grid_columnconfigure(0, weight=1)
-
-        def _export():
-            p = filedialog.asksaveasfilename(defaultextension=".png", filetypes=[("PNG", "*.png")])
-            if p and os.path.exists(img_path): shutil.copy(img_path, p)
-
-        def _delete():
-            HistoryManager.delete_entry(item.get("id"), item.get("image", ""))
-            self.refresh()
-
-        ctk.CTkButton(af, text="⬇", width=32, height=28, corner_radius=6, fg_color="#F1F5F9", text_color=TEXT_MD, hover_color=BORDER, command=_export).pack(side="left", padx=(0, 4))
-        ctk.CTkButton(af, text="🗑", width=32, height=28, corner_radius=6, fg_color="transparent", text_color="#EF4444", hover_color="#FEE2E2", command=_delete).pack(side="right")
-
 
 def setup_macos_shortcuts(root):
     if sys.platform == "darwin":
@@ -566,7 +468,7 @@ class AppWindow(ctk.CTk):
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
-        self.topbar = TopNavBar(self, on_create_click=lambda: self._show_page("create"), on_history_click=lambda: self._show_page("history"))
+        self.topbar = TopNavBar(self)
         self.topbar.grid(row=0, column=0, sticky="ew")
 
         # Create Layout
@@ -581,21 +483,12 @@ class AppWindow(ctk.CTk):
         self.preview = PreviewPanel(self.create_body, app_controller=self)
         self.preview.grid(row=0, column=1, sticky="nsew", padx=(12, 0))
 
-        # History Layout
-        self.history_body = HistoryPanel(self, app_controller=self)
-
-        self._show_page("create")
+        self._do_initial_generate()
         self.after(200, lambda: self.request_generate(debounce=False))
 
-    def _show_page(self, name):
-        self.topbar.set_active(name)
-        if name == "create":
-            self.history_body.grid_forget()
-            self.create_body.grid(row=1, column=0, sticky="nsew", padx=28, pady=20)
-        else:
-            self.create_body.grid_forget()
-            self.history_body.grid(row=1, column=0, sticky="nsew", padx=28, pady=20)
-            self.history_body.refresh()
+    def _do_initial_generate(self):
+        """Show the create body on startup."""
+        self.create_body.grid(row=1, column=0, sticky="nsew", padx=28, pady=20)
 
     def request_generate(self, *args, debounce=True):
         if hasattr(self, "_generate_job") and self._generate_job is not None:
@@ -622,8 +515,7 @@ class AppWindow(ctk.CTk):
         path = filedialog.asksaveasfilename(defaultextension=".png", filetypes=[("PNG files", "*.png")])
         if path:
             self.qr_img.save(path, "PNG")
-            self.preview.status_lbl.configure(text=f"Saved: {os.path.basename(path)}", text_color="#16A34A")
-            HistoryManager.save_history(self.workspace.type_seg.get(), self.workspace.get_data(), self.qr_img)
+            messagebox.showinfo("Saved", f"QR code saved successfully:\n{os.path.basename(path)}")
 
     def save_svg(self):
         data = self.workspace.get_data()
@@ -633,12 +525,32 @@ class AppWindow(ctk.CTk):
         path = filedialog.asksaveasfilename(defaultextension=".svg", filetypes=[("SVG", "*.svg")], initialfile="QR_Code.svg")
         if path:
             QRManager.generate_svg(data, path)
-            HistoryManager.save_history(self.workspace.type_seg.get(), data, self.qr_img)
 
     def copy_image(self):
         success, msg = ClipboardManager.copy_image(self.qr_img)
-        color = "#16A34A" if success else "#EF4444"
-        self.preview.status_lbl.configure(text=msg, text_color=color)
+        if success:
+            messagebox.showinfo("Copied", msg)
+        else:
+            messagebox.showerror("Clipboard Error", msg)
 
     def print_image(self):
-        messagebox.showinfo("Print", "Printing via system dialog.")
+        if not self.qr_img:
+            messagebox.showwarning("No image", "Generate a QR code first.")
+            return
+        try:
+            tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+            tmp.close()
+            self.qr_img.save(tmp.name, "PNG")
+            atexit.register(lambda f=tmp.name: os.path.exists(f) and os.remove(f))
+
+            if sys.platform == "win32":
+                # Opens Windows print dialog via the default image viewer
+                os.startfile(tmp.name, "print")
+            elif sys.platform == "darwin":
+                # Opens in Preview — user can Cmd+P to print
+                subprocess.Popen(["open", "-a", "Preview", tmp.name])
+            else:
+                # Linux: send directly to default printer
+                subprocess.Popen(["lp", tmp.name])
+        except Exception as e:
+            messagebox.showerror("Print Error", str(e))

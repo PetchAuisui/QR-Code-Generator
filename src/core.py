@@ -10,7 +10,7 @@ from qrcode.image.styles.moduledrawers import (
 )
 from PIL import Image, ImageOps
 
-from .config import HISTORY_FILE, HISTORY_DIR, hex_rgb
+from .config import hex_rgb
 
 RESAMPLE = getattr(Image, "Resampling", Image).LANCZOS
 
@@ -61,52 +61,6 @@ class QRManager:
         qr.add_data(data)
         qr.make(fit=True)
         qr.make_image().save(filepath)
-
-
-class HistoryManager:
-    """Handles saving, loading, and deleting QR code history."""
-    
-    @staticmethod
-    def load_history():
-        if not os.path.exists(HISTORY_FILE): 
-            return []
-        try:
-            with open(HISTORY_FILE) as f:
-                return json.load(f)
-        except Exception:
-            return []
-            
-    @staticmethod
-    def save_history(data_type, data, qr_img):
-        if not data or not qr_img: 
-            return
-        history = HistoryManager.load_history()
-        if history and history[0].get("data") == data:
-            return
-            
-        ts = int(datetime.now().timestamp())
-        fn = f"qr_{ts}.png"
-        fp = os.path.join(HISTORY_DIR, fn)
-        qr_img.save(fp)
-        
-        entry = {
-            "id": ts, "type": data_type, "data": data,
-            "image": fn, "date": datetime.now().strftime("%b %d, %Y %H:%M")
-        }
-        history.insert(0, entry)
-        with open(HISTORY_FILE, "w") as f:
-            json.dump(history[:50], f, indent=2)
-
-    @staticmethod
-    def delete_entry(item_id, image_filename):
-        history = HistoryManager.load_history()
-        history = [h for h in history if h.get("id") != item_id]
-        with open(HISTORY_FILE, "w") as f:
-            json.dump(history, f, indent=2)
-            
-        fp = os.path.join(HISTORY_DIR, image_filename)
-        if os.path.exists(fp):
-            os.remove(fp)
 
 
 class ClipboardManager:
