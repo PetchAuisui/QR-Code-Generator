@@ -52,7 +52,7 @@ class TopNavBar(ctk.CTkFrame):
 
 class WorkspacePanel(ctk.CTkScrollableFrame):
     def __init__(self, master, app_controller, **kwargs):
-        super().__init__(master, fg_color="transparent", scrollbar_button_color=BG, scrollbar_button_hover_color=BORDER, **kwargs)
+        super().__init__(master, fg_color=BG, scrollbar_button_color=BG, scrollbar_button_hover_color=BORDER, **kwargs)
         self.app = app_controller
         self.grid_columnconfigure(0, weight=1)
 
@@ -287,7 +287,7 @@ class HistoryPanel(ctk.CTkFrame):
         ctk.CTkLabel(h_top, text="Generation History", font=ctk.CTkFont(size=22, weight="bold"), text_color=TEXT_DK).pack(side="left")
         ctk.CTkLabel(h_top, text="Review and manage your recently generated QR codes.", font=ctk.CTkFont(size=13), text_color=TEXT_LT).pack(side="left", padx=12, pady=(4, 0))
 
-        self.hist_scroll = ctk.CTkScrollableFrame(self, fg_color="transparent")
+        self.hist_scroll = ctk.CTkScrollableFrame(self, fg_color=BG)
         self.hist_scroll.grid(row=1, column=0, sticky="nsew")
 
     def refresh(self):
@@ -466,11 +466,11 @@ class AppWindow(ctk.CTk):
     def set_window_icon(self):
         icon_paths = [
             # dev path
-            os.path.join(os.path.dirname(__file__), "..", "assets", "icon.ico"),
-            os.path.join(os.path.dirname(__file__), "..", "assets", "icon.png"),
+            os.path.join(os.path.dirname(__file__), "..", "icon.ico"),
+            os.path.join(os.path.dirname(__file__), "..", "icon.png"),
             # PyInstaller bundled path
-            os.path.join(getattr(sys, "_MEIPASS", ""), "assets", "icon.ico"),
-            os.path.join(getattr(sys, "_MEIPASS", ""), "assets", "icon.png"),
+            os.path.join(getattr(sys, "_MEIPASS", ""), "icon.ico"),
+            os.path.join(getattr(sys, "_MEIPASS", ""), "icon.png"),
         ]
         for p in icon_paths:
             if p and os.path.exists(p):

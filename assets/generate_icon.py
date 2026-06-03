@@ -6,6 +6,10 @@ from PIL import Image, ImageDraw, ImageFilter
 import qrcode
 
 import os
+import sys
+
+# Change working directory to the project root (parent of assets/)
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Check if icon.png already exists
 if os.path.exists("icon.png"):

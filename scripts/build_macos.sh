@@ -8,9 +8,10 @@ CTK_PATH=$(python3 -c "import customtkinter; import os; print(os.path.dirname(cu
 
 python3 -m PyInstaller --noconfirm --windowed \
   --name "QR Generator Pro" \
-  --icon=assets/icon.icns \
+  --icon=icon.icns \
   --add-data "$CTK_PATH:customtkinter/" \
-  --add-data "assets:assets/" \
+  --add-data "icon.png:." \
+  --add-data "icon.icns:." \
   main.py
 
 echo "✅ Build complete! App is in: dist/QR Generator Pro.app"
