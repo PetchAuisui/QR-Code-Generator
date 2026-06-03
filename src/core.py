@@ -8,7 +8,7 @@ from qrcode.image.styledpil import StyledPilImage
 from qrcode.image.styles.moduledrawers import (
     RoundedModuleDrawer, CircleModuleDrawer, SquareModuleDrawer, GappedSquareModuleDrawer
 )
-from PIL import Image
+from PIL import Image, ImageOps
 
 from .config import HISTORY_FILE, HISTORY_DIR, hex_rgb
 
@@ -33,14 +33,10 @@ class QRManager:
         qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_H, box_size=10, border=2)
         qr.add_data(data)
         qr.make(fit=True)
-        img = qr.make_image(image_factory=StyledPilImage, module_drawer=drawer).convert("RGBA")
+        img = qr.make_image(image_factory=StyledPilImage, module_drawer=drawer)
         
         fg, bg = hex_rgb(fg_color), hex_rgb(bg_color)
-        px = img.load()
-        for x in range(img.width):
-            for y in range(img.height):
-                r, *_ = px[x, y]
-                px[x, y] = (*fg, 255) if r < 128 else (*bg, 255)
+        img = ImageOps.colorize(img.convert("L"), black=fg, white=bg).convert("RGBA")
                 
         if logo_path and os.path.exists(logo_path):
             try:

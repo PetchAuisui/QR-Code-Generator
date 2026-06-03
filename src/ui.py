@@ -2,7 +2,7 @@ import os
 import sys
 from tkinter import colorchooser, filedialog, messagebox
 import customtkinter as ctk
-from PIL import Image
+from PIL import Image, ImageTk
 import shutil
 
 from .config import *
@@ -127,7 +127,7 @@ class WorkspacePanel(ctk.CTkScrollableFrame):
         self.entry_pass.grid(row=3, column=0, sticky="ew", padx=16, pady=(0, 8))
         self.entry_pass.bind("<KeyRelease>", lambda e: self.app.request_generate())
         ctk.CTkLabel(f_wifi, text="Security", text_color=TEXT_MD, font=ctk.CTkFont(size=12)).grid(row=4, column=0, sticky="w", padx=16, pady=(0, 4))
-        self.sec_seg = PillSegButton(f_wifi, values=["WPA/WPA2", "WEP", "None"], command=lambda e: self.app.request_generate(), height=38)
+        self.sec_seg = PillSegButton(f_wifi, values=["WPA/WPA2", "WEP", "None"], command=lambda e: self.app.request_generate(debounce=False), height=38)
         self.sec_seg.grid(row=5, column=0, sticky="ew", padx=16, pady=(0, 16))
         self.input_widgets["WiFi"] = f_wifi
 
@@ -149,7 +149,7 @@ class WorkspacePanel(ctk.CTkScrollableFrame):
         parent = self.acc_design.content
         parent.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(parent, text="Pattern Style", text_color=TEXT_LT, font=ctk.CTkFont(size=11)).grid(row=0, column=0, sticky="w", padx=12, pady=(4, 4))
-        self.shape_seg = PillSegButton(parent, values=["Square", "Rounded", "Circle", "Gapped"], command=lambda e: self.app.request_generate(), height=38)
+        self.shape_seg = PillSegButton(parent, values=["Square", "Rounded", "Circle", "Gapped"], command=lambda e: self.app.request_generate(debounce=False), height=38)
         self.shape_seg.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 12))
 
     def _build_logo_content(self):
@@ -164,7 +164,7 @@ class WorkspacePanel(ctk.CTkScrollableFrame):
             f.grid_remove()
         if value in self.input_widgets:
             self.input_widgets[value].grid(row=0, column=0, sticky="ew")
-        self.app.request_generate()
+        self.app.request_generate(debounce=False)
 
     def _pick_color(self, target):
         init = self.app.qr_fg if target == "fg" else self.app.qr_bg
@@ -178,7 +178,7 @@ class WorkspacePanel(ctk.CTkScrollableFrame):
                 self.app.qr_bg = res[1]
                 r = int(res[1][1:3], 16)
                 self.btn_bg.configure(fg_color=res[1], text=res[1].upper(), text_color="#FFFFFF" if r < 128 else TEXT_DK)
-            self.app.request_generate()
+            self.app.request_generate(debounce=False)
 
     def _upload_logo(self):
         p = filedialog.askopenfilename(filetypes=[("Images", "*.png *.jpg *.jpeg *.svg")])
@@ -187,13 +187,13 @@ class WorkspacePanel(ctk.CTkScrollableFrame):
             name = os.path.basename(p)
             self.logo_btn.configure(text=f"✓  {name}")
             self.logo_clear.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 12))
-            self.app.request_generate()
+            self.app.request_generate(debounce=False)
 
     def _clear_logo(self):
         self.app.logo_path = None
         self.logo_btn.configure(text="⬆  Drop logo here or click to browse\nPNG · SVG · JPG")
         self.logo_clear.grid_remove()
-        self.app.request_generate()
+        self.app.request_generate(debounce=False)
 
     def get_data(self):
         t = self.type_seg.get()
@@ -457,10 +457,34 @@ class AppWindow(ctk.CTk):
     def __init__(self):
         super().__init__()
         setup_macos_shortcuts(self)
+        self.set_window_icon()
         self.title("QR Generator Pro")
         self.geometry("1020x700")
         self.minsize(880, 600)
         self.configure(fg_color=BG)
+
+    def set_window_icon(self):
+        icon_paths = [
+            # dev path
+            os.path.join(os.path.dirname(__file__), "..", "assets", "icon.ico"),
+            os.path.join(os.path.dirname(__file__), "..", "assets", "icon.png"),
+            # PyInstaller bundled path
+            os.path.join(getattr(sys, "_MEIPASS", ""), "assets", "icon.ico"),
+            os.path.join(getattr(sys, "_MEIPASS", ""), "assets", "icon.png"),
+        ]
+        for p in icon_paths:
+            if p and os.path.exists(p):
+                try:
+                    if p.endswith(".ico") and sys.platform == "win32":
+                        self.iconbitmap(p)
+                    else:
+                        img = Image.open(p)
+                        photo = ImageTk.PhotoImage(img)
+                        self.iconphoto(True, photo)
+                        self._icon_photo = photo  # Keep a reference!
+                    break
+                except Exception as e:
+                    print(f"Failed to load icon from {p}: {e}")
 
         self.qr_fg = "#000000"
         self.qr_bg = "#FFFFFF"
@@ -489,7 +513,7 @@ class AppWindow(ctk.CTk):
         self.history_body = HistoryPanel(self, app_controller=self)
 
         self._show_page("create")
-        self.after(200, self.request_generate)
+        self.after(200, lambda: self.request_generate(debounce=False))
 
     def _show_page(self, name):
         self.topbar.set_active(name)
@@ -501,7 +525,18 @@ class AppWindow(ctk.CTk):
             self.history_body.grid(row=1, column=0, sticky="nsew", padx=28, pady=20)
             self.history_body.refresh()
 
-    def request_generate(self):
+    def request_generate(self, *args, debounce=True):
+        if hasattr(self, "_generate_job") and self._generate_job is not None:
+            self.after_cancel(self._generate_job)
+            self._generate_job = None
+            
+        if debounce:
+            self._generate_job = self.after(150, self._do_generate)
+        else:
+            self._do_generate()
+
+    def _do_generate(self):
+        self._generate_job = None
         data = self.workspace.get_data()
         shape = self.workspace.shape_seg.get()
         try:

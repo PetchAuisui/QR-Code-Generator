@@ -62,6 +62,11 @@ icon = icon.filter(ImageFilter.GaussianBlur(radius=2))
 # Save as PNG
 icon.save("icon.png")
 print("✅ Icon created: icon.png (1024x1024)")
+
+# Save as ICO (for Windows)
+icon_ico = icon.resize((256, 256), Image.LANCZOS)
+icon_ico.save("icon.ico", format="ICO", sizes=[(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
+print("✅ Icon converted to .ico format: icon.ico")
 print("📦 Converting to .icns format...")
 
 import subprocess

@@ -7,7 +7,9 @@ for /f "tokens=*" %%i in ('python -c "import customtkinter; import os; print(os.
 
 python -m PyInstaller --noconfirm --windowed ^
   --name "QR Generator Pro" ^
+  --icon="assets/icon.ico" ^
   --add-data "%CTK_PATH%;customtkinter/" ^
+  --add-data "assets;assets/" ^
   main.py
 
 echo Build complete! Executable is in: dist\QR Generator Pro

@@ -10,6 +10,7 @@ python3 -m PyInstaller --noconfirm --windowed \
   --name "QR Generator Pro" \
   --icon=assets/icon.icns \
   --add-data "$CTK_PATH:customtkinter/" \
+  --add-data "assets:assets/" \
   main.py
 
 echo "✅ Build complete! App is in: dist/QR Generator Pro.app"
