@@ -53,6 +53,10 @@ class TopNavBar(ctk.CTkFrame):
 class WorkspacePanel(ctk.CTkScrollableFrame):
     def __init__(self, master, app_controller, **kwargs):
         super().__init__(master, fg_color=BG, scrollbar_button_color=BG, scrollbar_button_hover_color=BORDER, **kwargs)
+        # Force canvas bg color — CTkScrollableFrame's internal canvas can default
+        # to the OS system color (white/grey) on Windows if not set explicitly.
+        if hasattr(self, "_canvas"):
+            self._canvas.configure(bg=BG)
         self.app = app_controller
         self.grid_columnconfigure(0, weight=1)
 
@@ -277,7 +281,7 @@ class PreviewPanel(ctk.CTkFrame):
 
 class HistoryPanel(ctk.CTkFrame):
     def __init__(self, master, app_controller, **kwargs):
-        super().__init__(master, fg_color="transparent", **kwargs)
+        super().__init__(master, fg_color=BG, **kwargs)
         self.app = app_controller
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
@@ -289,6 +293,9 @@ class HistoryPanel(ctk.CTkFrame):
 
         self.hist_scroll = ctk.CTkScrollableFrame(self, fg_color=BG)
         self.hist_scroll.grid(row=1, column=0, sticky="nsew")
+        # Force canvas bg color on Windows
+        if hasattr(self.hist_scroll, "_canvas"):
+            self.hist_scroll._canvas.configure(bg=BG)
 
     def refresh(self):
         for w in self.hist_scroll.winfo_children():
@@ -498,7 +505,7 @@ class AppWindow(ctk.CTk):
         self.topbar.grid(row=0, column=0, sticky="ew")
 
         # Create Layout
-        self.create_body = ctk.CTkFrame(self, fg_color="transparent")
+        self.create_body = ctk.CTkFrame(self, fg_color=BG)
         self.create_body.grid_columnconfigure(0, weight=5)
         self.create_body.grid_columnconfigure(1, weight=4)
         self.create_body.grid_rowconfigure(0, weight=1)
