@@ -511,8 +511,20 @@ class AppWindow(ctk.CTk):
         self.configure(fg_color=BG)
 
     def set_window_icon(self):
+        # ── Windows: tell the shell this is a standalone app (not python.exe) ──
+        # Without this, the Taskbar always shows the Python icon even when
+        # iconbitmap() succeeds for the window chrome.
+        if sys.platform == "win32":
+            try:
+                import ctypes
+                ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+                    "QRGeneratorPro.App.1"
+                )
+            except Exception:
+                pass
+
         icon_paths = [
-            # dev path
+            # dev path — prefer .ico on Windows, .png elsewhere
             os.path.join(os.path.dirname(__file__), "..", "icon.ico"),
             os.path.join(os.path.dirname(__file__), "..", "icon.png"),
             # PyInstaller bundled path
@@ -520,15 +532,28 @@ class AppWindow(ctk.CTk):
             os.path.join(getattr(sys, "_MEIPASS", ""), "icon.png"),
         ]
         for p in icon_paths:
-            if p and os.path.exists(p):
+            p = os.path.normpath(p)
+            if os.path.exists(p):
                 try:
-                    if p.endswith(".ico") and sys.platform == "win32":
-                        self.iconbitmap(p)
+                    if sys.platform == "win32":
+                        # iconbitmap works for both window chrome AND taskbar on Windows
+                        if p.endswith(".ico"):
+                            self.iconbitmap(p)
+                        else:
+                            # Convert PNG → ICO on the fly then set
+                            from PIL import Image as _Img
+                            import tempfile, atexit
+                            tmp = tempfile.NamedTemporaryFile(suffix=".ico", delete=False)
+                            tmp.close()
+                            _Img.open(p).save(tmp.name, format="ICO",
+                                              sizes=[(256,256),(128,128),(64,64),(48,48),(32,32),(16,16)])
+                            self.iconbitmap(tmp.name)
+                            atexit.register(lambda f=tmp.name: os.path.exists(f) and os.remove(f))
                     else:
                         img = Image.open(p)
                         photo = ImageTk.PhotoImage(img)
                         self.iconphoto(True, photo)
-                        self._icon_photo = photo  # Keep a reference!
+                        self._icon_photo = photo  # Keep a reference to prevent GC!
                     break
                 except Exception as e:
                     print(f"Failed to load icon from {p}: {e}")
