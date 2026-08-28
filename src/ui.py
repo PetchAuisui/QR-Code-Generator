@@ -515,18 +515,17 @@ class AppWindow(ctk.CTk):
             except Exception:
                 pass
 
+        dev_root = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
+        bundle_root = getattr(sys, "_MEIPASS", "")
+        if sys.platform == "darwin":
+            icon_name = "icon_macos.png"
+        elif sys.platform == "win32":
+            icon_name = "icon.ico"
+        else:
+            icon_name = "icon.png"
         icon_paths = [
-            # macOS-specific source uses the standard transparent safe area
-            *([os.path.join(os.path.dirname(__file__), "..", "icon_macos.png")]
-              if sys.platform == "darwin" else []),
-            # dev path — prefer .ico on Windows, .png elsewhere
-            os.path.join(os.path.dirname(__file__), "..", "icon.ico"),
-            os.path.join(os.path.dirname(__file__), "..", "icon.png"),
-            # PyInstaller bundled path
-            *([os.path.join(getattr(sys, "_MEIPASS", ""), "icon_macos.png")]
-              if sys.platform == "darwin" else []),
-            os.path.join(getattr(sys, "_MEIPASS", ""), "icon.ico"),
-            os.path.join(getattr(sys, "_MEIPASS", ""), "icon.png"),
+            os.path.join(dev_root, icon_name),
+            os.path.join(bundle_root, icon_name),
         ]
         for p in icon_paths:
             p = os.path.normpath(p)

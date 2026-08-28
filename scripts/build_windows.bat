@@ -9,9 +9,7 @@ python -m PyInstaller --noconfirm --windowed ^
   --name "QR Generator Pro" ^
   --icon="icon.ico" ^
   --add-data "%CTK_PATH%;customtkinter/" ^
-  --add-data "icon.png;." ^
   --add-data "icon.ico;." ^
-  --add-data "assets/icons;assets/icons" ^
   main.py
 
 echo Build complete! Executable is in: dist\QR Generator Pro
