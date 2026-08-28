@@ -472,7 +472,13 @@ def setup_macos_shortcuts(root):
             "<Command-KeyPress-Thai_oang>": paste_text,    # Cmd+V
         }
         for sequence, handler in layout_shortcuts.items():
-            root.bind_all(sequence, handler, add="+")
+            # Some Tcl/Tk builds do not include Thai keysyms. Treat these
+            # bindings as optional so an unsupported layout cannot crash the
+            # packaged app during startup; physical keycodes remain active.
+            try:
+                root.bind_all(sequence, handler, add="+")
+            except Exception:
+                pass
 
         # Create macOS Application Menu
         try:
