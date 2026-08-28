@@ -516,10 +516,15 @@ class AppWindow(ctk.CTk):
                 pass
 
         icon_paths = [
+            # macOS-specific source uses the standard transparent safe area
+            *([os.path.join(os.path.dirname(__file__), "..", "icon_macos.png")]
+              if sys.platform == "darwin" else []),
             # dev path — prefer .ico on Windows, .png elsewhere
             os.path.join(os.path.dirname(__file__), "..", "icon.ico"),
             os.path.join(os.path.dirname(__file__), "..", "icon.png"),
             # PyInstaller bundled path
+            *([os.path.join(getattr(sys, "_MEIPASS", ""), "icon_macos.png")]
+              if sys.platform == "darwin" else []),
             os.path.join(getattr(sys, "_MEIPASS", ""), "icon.ico"),
             os.path.join(getattr(sys, "_MEIPASS", ""), "icon.png"),
         ]

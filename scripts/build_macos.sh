@@ -11,6 +11,7 @@ python3 -m PyInstaller --noconfirm --windowed \
   --icon=icon.icns \
   --add-data "$CTK_PATH:customtkinter/" \
   --add-data "icon.png:." \
+  --add-data "icon_macos.png:." \
   --add-data "icon.icns:." \
   --add-data "assets/icons:assets/icons" \
   main.py
