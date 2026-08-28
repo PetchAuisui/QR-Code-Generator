@@ -1,4 +1,4 @@
-# QR Generator Pro 🎨📱
+# QR Studio 🎨📱
 
 A modern, fast, and highly customizable QR Code Generator built with Python and CustomTkinter. 
 
@@ -52,7 +52,7 @@ Run the following `pyinstaller` command to bundle the app. Make sure to replace 
 
 ```bash
 pyinstaller --noconfirm --windowed \
-  --name "QR Generator Pro" \
+  --name "QR Studio" \
   --icon=icon.icns \
   --add-data "/Library/Frameworks/Python.framework/Versions/<your_python_version>/lib/python<your_python_version>/site-packages/customtkinter:customtkinter/" \
   main.py
@@ -60,7 +60,7 @@ pyinstaller --noconfirm --windowed \
 
 ### 4. Locate the App
 Once finished, you will find the final application inside the `dist/` folder:
-👉 `dist/QR Generator Pro.app`
+👉 `dist/QR Studio.app`
 
 *(You can safely drag this app into your Mac's `/Applications` folder!)*
 

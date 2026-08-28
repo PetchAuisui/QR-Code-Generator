@@ -53,42 +53,42 @@ jobs:
       if: matrix.os == 'macos-latest'
       run: |
         CTK_PATH=$(python -c "import customtkinter; import os; print(os.path.dirname(customtkinter.__file__))")
-        pyinstaller --noconfirm --windowed --name "QR Generator Pro" --icon=icon.icns --add-data "$CTK_PATH:customtkinter/" --add-data "icon_macos.png:." main.py
+        pyinstaller --noconfirm --windowed --name "QR Studio" --icon=icon.icns --add-data "$CTK_PATH:customtkinter/" --add-data "icon_macos.png:." main.py
         cd dist
-        zip -r ../QR-Generator-Pro-macOS.zip "QR Generator Pro.app"
+        zip -r ../QR-Studio-macOS.zip "QR Studio.app"
 
     - name: Build with PyInstaller (Linux)
       if: matrix.os == 'ubuntu-latest'
       run: |
         CTK_PATH=$(python -c "import customtkinter; import os; print(os.path.dirname(customtkinter.__file__))")
-        pyinstaller --noconfirm --windowed --name "QR Generator Pro" --add-data "$CTK_PATH:customtkinter/" --add-data "icon.png:." main.py
+        pyinstaller --noconfirm --windowed --name "QR Studio" --add-data "$CTK_PATH:customtkinter/" --add-data "icon.png:." main.py
 
     - name: Build with PyInstaller (Windows)
       if: matrix.os == 'windows-latest'
       run: |
         $CTK_PATH = python -c "import customtkinter; import os; print(os.path.dirname(customtkinter.__file__))"
-        pyinstaller --noconfirm --windowed --name "QR Generator Pro" --icon=icon.ico --add-data "$CTK_PATH;customtkinter/" --add-data "icon.ico;." main.py
+        pyinstaller --noconfirm --windowed --name "QR Studio" --icon=icon.ico --add-data "$CTK_PATH;customtkinter/" --add-data "icon.ico;." main.py
 
     - name: Upload Artifact (macOS)
       if: matrix.os == 'macos-latest'
       uses: actions/upload-artifact@v4
       with:
-        name: QR-Generator-Pro-macOS
-        path: QR-Generator-Pro-macOS.zip
+        name: QR-Studio-macOS
+        path: QR-Studio-macOS.zip
 
     - name: Upload Artifact (Windows)
       if: matrix.os == 'windows-latest'
       uses: actions/upload-artifact@v4
       with:
-        name: QR-Generator-Pro-Windows
-        path: "dist/QR Generator Pro"
+        name: QR-Studio-Windows
+        path: "dist/QR Studio"
 
     - name: Upload Artifact (Linux)
       if: matrix.os == 'ubuntu-latest'
       uses: actions/upload-artifact@v4
       with:
-        name: QR-Generator-Pro-Linux
-        path: dist/QR Generator Pro
+        name: QR-Studio-Linux
+        path: dist/QR Studio
 
   release:
     needs: build
@@ -106,24 +106,24 @@ jobs:
       - name: Prepare Release Assets
         run: |
           # Move the macOS zip from the download folder to the root
-          mv artifacts/QR-Generator-Pro-macOS/QR-Generator-Pro-macOS.zip .
+          mv artifacts/QR-Studio-macOS/QR-Studio-macOS.zip .
           
           # Zip Windows and Linux
-          cd artifacts/QR-Generator-Pro-Windows
-          zip -r ../../QR-Generator-Pro-Windows.zip .
+          cd artifacts/QR-Studio-Windows
+          zip -r ../../QR-Studio-Windows.zip .
           cd ../..
           
-          cd artifacts/QR-Generator-Pro-Linux
-          zip -r ../../QR-Generator-Pro-Linux.zip .
+          cd artifacts/QR-Studio-Linux
+          zip -r ../../QR-Studio-Linux.zip .
           cd ../..
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            QR-Generator-Pro-macOS.zip
-            QR-Generator-Pro-Windows.zip
-            QR-Generator-Pro-Linux.zip
+            QR-Studio-macOS.zip
+            QR-Studio-Windows.zip
+            QR-Studio-Linux.zip
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
