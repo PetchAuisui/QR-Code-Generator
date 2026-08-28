@@ -53,7 +53,7 @@ Run the following `pyinstaller` command to bundle the app. Make sure to replace 
 ```bash
 pyinstaller --noconfirm --windowed \
   --name "QR Generator Pro" \
-  --icon=assets/icon.icns \
+  --icon=icon.icns \
   --add-data "/Library/Frameworks/Python.framework/Versions/<your_python_version>/lib/python<your_python_version>/site-packages/customtkinter:customtkinter/" \
   main.py
 ```

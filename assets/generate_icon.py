@@ -79,39 +79,24 @@ else:
 icon_ico = icon.resize((256, 256), Image.LANCZOS)
 icon_ico.save("icon.ico", format="ICO", sizes=[(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
 print("✅ Icon converted to .ico format: icon.ico")
+
+# macOS icons need transparent breathing room so their perceived size matches
+# neighboring Dock icons. Keep the full-bleed icon.png for Windows and create a
+# dedicated safe-area version for macOS.
+mac_canvas_size = 1024
+mac_artwork_size = 860
+mac_icon = Image.new("RGBA", (mac_canvas_size, mac_canvas_size), (0, 0, 0, 0))
+mac_artwork = icon.convert("RGBA").resize(
+    (mac_artwork_size, mac_artwork_size), Image.Resampling.LANCZOS
+)
+mac_offset = (mac_canvas_size - mac_artwork_size) // 2
+mac_icon.alpha_composite(mac_artwork, (mac_offset, mac_offset))
+mac_icon.save("icon_macos.png")
+print("✅ Created padded macOS icon source: icon_macos.png")
+
 print("📦 Converting to .icns format...")
 
-import subprocess
-import os
-
-# Convert PNG to ICNS using iconutil
-if os.path.exists("icon.png"):
-    # Create IconSet directory
-    os.makedirs("icon.iconset", exist_ok=True)
-    
-    # Create different sizes
-    sizes = [16, 32, 64, 128, 256, 512]
-    
-    for size in sizes:
-        # Regular
-        img = Image.open("icon.png")
-        img_resized = img.resize((size, size), Image.LANCZOS)
-        img_resized.save(f"icon.iconset/icon_{size}x{size}.png")
-        
-        # Retina (2x)
-        img_resized_2x = img.resize((size * 2, size * 2), Image.LANCZOS)
-        img_resized_2x.save(f"icon.iconset/icon_{size}x{size}@2x.png")
-    
-    print("✅ Created icon.iconset directory with all sizes")
-    
-    # Convert to ICNS
-    try:
-        subprocess.run(
-            ["iconutil", "-c", "icns", "icon.iconset", "-o", "icon.icns"],
-            check=True
-        )
-        print("✅ Icon converted to .icns format: icon.icns")
-    except subprocess.CalledProcessError:
-        print("❌ iconutil failed. Make sure you're on macOS.")
-    except FileNotFoundError:
-        print("❌ iconutil not found. This tool only works on macOS.")
+# Pillow writes the complete multi-resolution ICNS container directly. This is
+# more reliable across macOS/Xcode versions than shelling out to iconutil.
+mac_icon.save("icon.icns", format="ICNS")
+print("✅ Icon converted to .icns format: icon.icns")

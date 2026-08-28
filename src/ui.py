@@ -5,7 +5,7 @@ import tempfile
 import atexit
 from tkinter import colorchooser, filedialog, messagebox
 import customtkinter as ctk
-from PIL import Image, ImageDraw, ImageTk
+from PIL import Image, ImageTk
 import shutil
 
 from .config import *
@@ -15,52 +15,30 @@ from .widgets import PillSegButton, AccordionCard
 RESAMPLE = getattr(Image, "Resampling", Image).LANCZOS
 
 
-def _make_colors_icon(size=24):
-    """Draw a paint-palette-like icon with three coloured circles."""
-    S = 256
-    img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    d.ellipse([8, 80, 152, 224], fill="#4285F4")   # blue
-    d.ellipse([104, 8, 248, 152], fill="#EA4335")   # red
-    d.ellipse([104, 104, 248, 248], fill="#34A853")  # green
-    return ctk.CTkImage(light_image=img, dark_image=img, size=(size, size))
-
-
-def _make_design_icon(size=24):
-    """Draw a 2x2 grid of rounded squares."""
-    S = 256
-    img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    c, r = "#004ac6", 20
-    for row in range(2):
-        for col in range(2):
-            x, y = 12 + col * 124, 12 + row * 124
-            d.rounded_rectangle([x, y, x + 108, y + 108], radius=r, fill=c)
-    return ctk.CTkImage(light_image=img, dark_image=img, size=(size, size))
-
-
-def _make_logo_icon(size=24):
-    """Draw a simple picture-frame icon."""
-    S = 256
-    img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    c = "#004ac6"
-    d.rounded_rectangle([16, 32, 240, 224], radius=24, outline=c, width=16, fill=None)
-    d.ellipse([48, 64, 108, 124], fill=c)
-    d.polygon([(32, 200), (96, 120), (152, 176), (200, 128), (240, 200)], fill=c)
-    return ctk.CTkImage(light_image=img, dark_image=img, size=(size, size))
-
 class TopNavBar(ctk.CTkFrame):
     def __init__(self, master, **kwargs):
-        super().__init__(master, fg_color=CARD_BG, corner_radius=0, border_width=1, border_color=BORDER, height=56, **kwargs)
+        super().__init__(master, fg_color=CARD_BG, corner_radius=0, border_width=0, height=76, **kwargs)
         self.grid_columnconfigure(0, weight=1)
         self.grid_propagate(False)
 
-        sep = ctk.CTkFrame(self, fg_color=BORDER, height=1, corner_radius=0)
-        sep.grid(row=0, column=0, sticky="ews")
+        brand = ctk.CTkFrame(self, fg_color="transparent")
+        brand.grid(row=0, column=0, padx=32, pady=14, sticky="w")
+        logo = ctk.CTkLabel(brand, text="QR", width=42, height=42, corner_radius=12,
+                            fg_color=BLUE, text_color="#ffffff",
+                            font=ctk.CTkFont(size=14, weight="bold"))
+        logo.grid(row=0, column=0, rowspan=2, padx=(0, 12))
+        ctk.CTkLabel(brand, text="QR Studio", text_color=TEXT_DK,
+                     font=ctk.CTkFont(size=18, weight="bold"), anchor="w").grid(row=0, column=1, sticky="sw")
+        ctk.CTkLabel(brand, text="Create, customize and export", text_color=TEXT_LT,
+                     font=ctk.CTkFont(size=11), anchor="w").grid(row=1, column=1, sticky="nw")
 
-        ctk.CTkLabel(self, text="QR Pro", font=ctk.CTkFont(size=18, weight="bold"), text_color=BLUE)\
-            .grid(row=0, column=0, padx=28, pady=14, sticky="w")
+        ctk.CTkLabel(self, text="Live generator", text_color=TEXT_MD, fg_color="#f1f5f9",
+                     corner_radius=16, padx=14, pady=7,
+                     font=ctk.CTkFont(size=11, weight="bold")).grid(row=0, column=1, padx=32, sticky="e")
+
+        ctk.CTkFrame(self, fg_color=BORDER, height=1, corner_radius=0).grid(
+            row=1, column=0, columnspan=2, sticky="ew"
+        )
 
     def set_active(self, page_name):
         pass
@@ -76,31 +54,69 @@ class WorkspacePanel(ctk.CTkScrollableFrame):
         self.app = app_controller
         self.grid_columnconfigure(0, weight=1)
 
-        self.type_seg = PillSegButton(self, values=["URL", "Text", "Email", "WiFi"], command=self._on_type_change, height=46)
-        self.type_seg.grid(row=0, column=0, sticky="ew", padx=2, pady=(0, 12))
+        ctk.CTkLabel(self, text="Create your QR code", text_color=TEXT_DK,
+                     font=ctk.CTkFont(size=24, weight="bold"), anchor="w").grid(
+            row=0, column=0, sticky="ew", padx=2
+        )
+        ctk.CTkLabel(self, text="Choose a content type, then make it yours.", text_color=TEXT_MD,
+                     font=ctk.CTkFont(size=12), anchor="w").grid(
+            row=1, column=0, sticky="ew", padx=2, pady=(3, 18)
+        )
 
-        self.input_card = ctk.CTkFrame(self, fg_color=CARD_BG, corner_radius=12, border_width=1, border_color=BORDER)
-        self.input_card.grid(row=1, column=0, sticky="ew", padx=2, pady=(0, 16))
+        self.type_seg = PillSegButton(self, values=["URL", "Text", "Email", "WiFi"], command=self._on_type_change, height=46)
+        self.type_seg.grid(row=2, column=0, sticky="ew", padx=2, pady=(0, 12))
+
+        self.input_card = ctk.CTkFrame(self, fg_color=CARD_BG, corner_radius=14, border_width=1, border_color=BORDER)
+        self.input_card.grid(row=3, column=0, sticky="ew", padx=2, pady=(0, 20))
         self.input_card.grid_columnconfigure(0, weight=1)
 
         self.input_widgets = {}
         self._build_input_fields()
 
-        _icon_colors = _make_colors_icon(22)
-        _icon_design = _make_design_icon(22)
-        _icon_logo   = _make_logo_icon(22)
+        self.acc_colors = AccordionCard(self, title="Colors", icon="colors", expanded=False)
+        ctk.CTkLabel(self, text="CUSTOMIZE", text_color=TEXT_LT,
+                     font=ctk.CTkFont(size=10, weight="bold"), anchor="w").grid(
+            row=4, column=0, sticky="ew", padx=4, pady=(0, 8)
+        )
 
-        self.acc_colors = AccordionCard(self, title="Colors", icon_image=_icon_colors, expanded=False)
-        self.acc_colors.grid(row=2, column=0, sticky="ew", padx=2, pady=(0, 16))
+        self.acc_colors.grid(row=5, column=0, sticky="ew", padx=2, pady=(0, 10))
         self._build_colors_content()
 
-        self.acc_design = AccordionCard(self, title="Design", icon_image=_icon_design, expanded=False)
-        self.acc_design.grid(row=3, column=0, sticky="ew", padx=2, pady=(0, 16))
+        self.acc_design = AccordionCard(self, title="Design", icon="design", expanded=False)
+        self.acc_design.grid(row=6, column=0, sticky="ew", padx=2, pady=(0, 10))
         self._build_design_content()
 
-        self.acc_logo = AccordionCard(self, title="Logo", icon_image=_icon_logo, expanded=False)
-        self.acc_logo.grid(row=4, column=0, sticky="ew", padx=2, pady=(0, 16))
+        self.acc_logo = AccordionCard(self, title="Logo", icon="logo", expanded=False)
+        self.acc_logo.grid(row=7, column=0, sticky="ew", padx=2, pady=(0, 16))
         self._build_logo_content()
+
+    def _mouse_wheel_all(self, event):
+        """Scroll whenever the pointer is anywhere over this workspace."""
+        try:
+            pointer_x, pointer_y = self.winfo_pointerxy()
+            left = self._parent_canvas.winfo_rootx()
+            top = self._parent_canvas.winfo_rooty()
+            right = left + self._parent_canvas.winfo_width()
+            bottom = top + self._parent_canvas.winfo_height()
+            if not (left <= pointer_x < right and top <= pointer_y < bottom):
+                return
+
+            if self._parent_canvas.yview() == (0.0, 1.0):
+                return "break"
+
+            if sys.platform == "darwin":
+                amount = -int(event.delta)
+            elif sys.platform.startswith("win"):
+                amount = -int(event.delta / 120)
+            else:
+                amount = -int(event.delta)
+
+            if amount == 0 and event.delta:
+                amount = -1 if event.delta > 0 else 1
+            self._parent_canvas.yview_scroll(amount, "units")
+            return "break"
+        except Exception:
+            return
 
     def _build_input_fields(self):
         pad = dict(padx=16, pady=(0, 16))
@@ -111,7 +127,7 @@ class WorkspacePanel(ctk.CTkScrollableFrame):
         f_url.grid(row=0, column=0, sticky="ew")
         f_url.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(f_url, text="Enter URL", text_color=TEXT_MD, font=ctk.CTkFont(size=12)).grid(row=0, column=0, sticky="w", padx=16, pady=(14, 4))
-        self.entry_url = ctk.CTkEntry(f_url, placeholder_text="https://example.com", height=48, corner_radius=8, border_width=1, border_color="#000000", fg_color="#eff4ff", text_color=TEXT_DK, font=ctk.CTkFont(size=14))
+        self.entry_url = ctk.CTkEntry(f_url, placeholder_text="https://example.com", height=48, corner_radius=10, border_width=1, border_color=BORDER, fg_color="#f8fafc", text_color=TEXT_DK, font=ctk.CTkFont(size=14))
         self.entry_url.insert(0, "https://qrpro.io/workspace")
         self.entry_url.grid(row=1, column=0, sticky="ew", **pad)
         self.entry_url.bind("<KeyRelease>", lambda e: self.app.request_generate())
@@ -121,7 +137,9 @@ class WorkspacePanel(ctk.CTkScrollableFrame):
         f_txt = ctk.CTkFrame(parent, fg_color="transparent")
         f_txt.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(f_txt, text="Enter Text", text_color=TEXT_MD, font=ctk.CTkFont(size=12)).grid(row=0, column=0, sticky="w", padx=16, pady=(14, 4))
-        self.entry_txt = ctk.CTkTextbox(f_txt, height=80, corner_radius=10, border_width=1, border_color="#000000", fg_color="#eff4ff", text_color=TEXT_DK, font=ctk.CTkFont(size=13))
+        self.entry_txt = ctk.CTkTextbox(f_txt, height=92, corner_radius=10, border_width=1, border_color=BORDER, fg_color="#f8fafc", text_color=TEXT_DK, font=ctk.CTkFont(size=13))
+        # Enable Tk's native undo stack; macOS shortcuts are installed below.
+        self.entry_txt._textbox.configure(undo=True, autoseparators=True, maxundo=-1)
         self.entry_txt.grid(row=1, column=0, sticky="ew", **pad)
         self.entry_txt.bind("<KeyRelease>", lambda e: self.app.request_generate())
         self.input_widgets["Text"] = f_txt
@@ -130,11 +148,11 @@ class WorkspacePanel(ctk.CTkScrollableFrame):
         f_eml = ctk.CTkFrame(parent, fg_color="transparent")
         f_eml.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(f_eml, text="Email Address", text_color=TEXT_MD, font=ctk.CTkFont(size=12)).grid(row=0, column=0, sticky="w", padx=16, pady=(14, 4))
-        self.entry_eml = ctk.CTkEntry(f_eml, placeholder_text="hello@example.com", height=42, corner_radius=10, border_width=1, border_color="#000000", fg_color="#eff4ff", text_color=TEXT_DK, font=ctk.CTkFont(size=13))
+        self.entry_eml = ctk.CTkEntry(f_eml, placeholder_text="hello@example.com", height=44, corner_radius=10, border_width=1, border_color=BORDER, fg_color="#f8fafc", text_color=TEXT_DK, font=ctk.CTkFont(size=13))
         self.entry_eml.grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 8))
         self.entry_eml.bind("<KeyRelease>", lambda e: self.app.request_generate())
         ctk.CTkLabel(f_eml, text="Subject", text_color=TEXT_MD, font=ctk.CTkFont(size=12)).grid(row=2, column=0, sticky="w", padx=16, pady=(0, 4))
-        self.entry_sub = ctk.CTkEntry(f_eml, placeholder_text="Subject line...", height=42, corner_radius=10, border_width=1, border_color="#000000", fg_color="#eff4ff", text_color=TEXT_DK, font=ctk.CTkFont(size=13))
+        self.entry_sub = ctk.CTkEntry(f_eml, placeholder_text="Subject line...", height=44, corner_radius=10, border_width=1, border_color=BORDER, fg_color="#f8fafc", text_color=TEXT_DK, font=ctk.CTkFont(size=13))
         self.entry_sub.grid(row=3, column=0, sticky="ew", **pad)
         self.entry_sub.bind("<KeyRelease>", lambda e: self.app.request_generate())
         self.input_widgets["Email"] = f_eml
@@ -143,11 +161,11 @@ class WorkspacePanel(ctk.CTkScrollableFrame):
         f_wifi = ctk.CTkFrame(parent, fg_color="transparent")
         f_wifi.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(f_wifi, text="Network Name (SSID)", text_color=TEXT_MD, font=ctk.CTkFont(size=12)).grid(row=0, column=0, sticky="w", padx=16, pady=(14, 4))
-        self.entry_ssid = ctk.CTkEntry(f_wifi, placeholder_text="MyNetwork", height=42, corner_radius=10, border_width=1, border_color="#000000", fg_color="#eff4ff", text_color=TEXT_DK, font=ctk.CTkFont(size=13))
+        self.entry_ssid = ctk.CTkEntry(f_wifi, placeholder_text="MyNetwork", height=44, corner_radius=10, border_width=1, border_color=BORDER, fg_color="#f8fafc", text_color=TEXT_DK, font=ctk.CTkFont(size=13))
         self.entry_ssid.grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 8))
         self.entry_ssid.bind("<KeyRelease>", lambda e: self.app.request_generate())
         ctk.CTkLabel(f_wifi, text="Password", text_color=TEXT_MD, font=ctk.CTkFont(size=12)).grid(row=2, column=0, sticky="w", padx=16, pady=(0, 4))
-        self.entry_pass = ctk.CTkEntry(f_wifi, show="*", placeholder_text="Password", height=42, corner_radius=10, border_width=1, border_color="#000000", fg_color="#eff4ff", text_color=TEXT_DK, font=ctk.CTkFont(size=13))
+        self.entry_pass = ctk.CTkEntry(f_wifi, show="*", placeholder_text="Password", height=44, corner_radius=10, border_width=1, border_color=BORDER, fg_color="#f8fafc", text_color=TEXT_DK, font=ctk.CTkFont(size=13))
         self.entry_pass.grid(row=3, column=0, sticky="ew", padx=16, pady=(0, 8))
         self.entry_pass.bind("<KeyRelease>", lambda e: self.app.request_generate())
         ctk.CTkLabel(f_wifi, text="Security", text_color=TEXT_MD, font=ctk.CTkFont(size=12)).grid(row=4, column=0, sticky="w", padx=16, pady=(0, 4))
@@ -237,23 +255,30 @@ class WorkspacePanel(ctk.CTkScrollableFrame):
 
 class PreviewPanel(ctk.CTkFrame):
     def __init__(self, master, app_controller, **kwargs):
-        super().__init__(master, fg_color=CARD_BG, corner_radius=16, border_width=1, border_color=BORDER, **kwargs)
+        super().__init__(master, fg_color="#0f172a", corner_radius=20, border_width=0, **kwargs)
         self.app = app_controller
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
         h = ctk.CTkFrame(self, fg_color="transparent")
-        h.grid(row=0, column=0, sticky="ew", padx=24, pady=(20, 16))
-        ctk.CTkLabel(h, text="Live Preview", font=ctk.CTkFont(size=20, weight="bold"), text_color=TEXT_DK).pack(side="left")
-        ctk.CTkLabel(h, text="● Synced", fg_color="#dcfce7", text_color="#15803d", corner_radius=12, padx=12, pady=4, font=ctk.CTkFont(size=12, weight="bold")).pack(side="right")
+        h.grid(row=0, column=0, sticky="ew", padx=28, pady=(24, 18))
+        title_wrap = ctk.CTkFrame(h, fg_color="transparent")
+        title_wrap.pack(side="left")
+        ctk.CTkLabel(title_wrap, text="Your QR code", font=ctk.CTkFont(size=22, weight="bold"),
+                     text_color="#ffffff", anchor="w").pack(anchor="w")
+        ctk.CTkLabel(title_wrap, text="Updates instantly as you type", font=ctk.CTkFont(size=11),
+                     text_color="#94a3b8", anchor="w").pack(anchor="w", pady=(2, 0))
+        ctk.CTkLabel(h, text="●  LIVE", fg_color="#153b35", text_color="#86efac",
+                     corner_radius=14, padx=12, pady=6,
+                     font=ctk.CTkFont(size=10, weight="bold")).pack(side="right")
 
-        disp_outer = ctk.CTkFrame(self, fg_color=CARD_BG, corner_radius=16, border_width=1, border_color=BORDER)
-        disp_outer.grid(row=1, column=0, sticky="nsew", padx=24, pady=(0, 20))
+        disp_outer = ctk.CTkFrame(self, fg_color="#ffffff", corner_radius=18, border_width=0)
+        disp_outer.grid(row=1, column=0, sticky="nsew", padx=28, pady=(0, 22))
         disp_outer.grid_rowconfigure(0, weight=1)
         disp_outer.grid_columnconfigure(0, weight=1)
 
         disp_inner = ctk.CTkFrame(disp_outer, fg_color="transparent")
-        disp_inner.grid(row=0, column=0, padx=16, pady=16, sticky="nsew")
+        disp_inner.grid(row=0, column=0, padx=20, pady=20, sticky="nsew")
         disp_inner.grid_rowconfigure(0, weight=1)
         disp_inner.grid_columnconfigure(0, weight=1)
 
@@ -261,20 +286,20 @@ class PreviewPanel(ctk.CTkFrame):
         self.qr_display.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
 
         btn_row = ctk.CTkFrame(self, fg_color="transparent")
-        btn_row.grid(row=2, column=0, sticky="ew", padx=24, pady=(0, 12))
+        btn_row.grid(row=2, column=0, sticky="ew", padx=28, pady=(0, 12))
         btn_row.grid_columnconfigure(0, weight=1)
         btn_row.grid_columnconfigure(1, weight=1)
 
-        ctk.CTkButton(btn_row, text="Download PNG", fg_color=BLUE, hover_color=BLUE_DK, text_color="#ffffff", height=48, corner_radius=12, font=ctk.CTkFont(size=14, weight="bold"), command=self.app.save_png).grid(row=0, column=0, padx=(0, 8), sticky="ew")
-        ctk.CTkButton(btn_row, text="Download SVG", fg_color="#dae2fd", hover_color="#d3e4fe", text_color="#5c647a", height=48, corner_radius=12, font=ctk.CTkFont(size=14, weight="bold"), command=self.app.save_svg).grid(row=0, column=1, padx=(8, 0), sticky="ew")
+        ctk.CTkButton(btn_row, text="↓  Save PNG", fg_color=BLUE, hover_color=BLUE_DK, text_color="#ffffff", height=50, corner_radius=12, font=ctk.CTkFont(size=14, weight="bold"), command=self.app.save_png).grid(row=0, column=0, padx=(0, 7), sticky="ew")
+        ctk.CTkButton(btn_row, text="Save SVG", fg_color="#1e293b", hover_color="#334155", text_color="#e2e8f0", border_width=1, border_color="#334155", height=50, corner_radius=12, font=ctk.CTkFont(size=14, weight="bold"), command=self.app.save_svg).grid(row=0, column=1, padx=(7, 0), sticky="ew")
 
         btn_row2 = ctk.CTkFrame(self, fg_color="transparent")
-        btn_row2.grid(row=3, column=0, sticky="ew", padx=24, pady=(0, 20))
+        btn_row2.grid(row=3, column=0, sticky="ew", padx=28, pady=(0, 24))
         btn_row2.grid_columnconfigure(0, weight=1)
         btn_row2.grid_columnconfigure(1, weight=1)
 
-        ctk.CTkButton(btn_row2, text="Copy Image", fg_color="transparent", hover_color="#eff4ff", text_color=TEXT_MD, border_width=1, border_color=BORDER, height=44, corner_radius=12, font=ctk.CTkFont(size=14), command=self.app.copy_image).grid(row=0, column=0, padx=(0, 8), sticky="ew")
-        ctk.CTkButton(btn_row2, text="Print", fg_color="transparent", hover_color="#eff4ff", text_color=TEXT_MD, border_width=1, border_color=BORDER, height=44, corner_radius=12, font=ctk.CTkFont(size=14), command=self.app.print_image).grid(row=0, column=1, padx=(8, 0), sticky="ew")
+        ctk.CTkButton(btn_row2, text="▣  Copy image", fg_color="transparent", hover_color="#1e293b", text_color="#cbd5e1", border_width=0, height=40, corner_radius=10, font=ctk.CTkFont(size=12), command=self.app.copy_image).grid(row=0, column=0, padx=(0, 7), sticky="ew")
+        ctk.CTkButton(btn_row2, text="Print", fg_color="transparent", hover_color="#1e293b", text_color="#cbd5e1", border_width=0, height=40, corner_radius=10, font=ctk.CTkFont(size=12), command=self.app.print_image).grid(row=0, column=1, padx=(7, 0), sticky="ew")
         # End of PreviewPanel layout
 
     def update_image(self, img):
@@ -300,100 +325,162 @@ def setup_macos_shortcuts(root):
             def __init__(self, widget):
                 self.widget = widget
 
-        def select_all(event):
-            if not event or not event.widget: return "break"
+        def _is_text(widget):
+            return widget.winfo_class() == "Text"
+
+        def _remember_entry(widget):
+            if _is_text(widget):
+                return
+            value = widget.get()
+            history = getattr(widget, "_qr_undo_history", None)
+            if history is None:
+                history = []
+                widget._qr_undo_history = history
+            if not history or history[-1] != value:
+                history.append(value)
+                if len(history) > 200:
+                    del history[0]
+
+        def remember_entry_after_key(event):
             widget = event.widget
-            if hasattr(widget, "select_range"):
-                widget.select_range(0, "end")
-                widget.icursor("end")
-            elif hasattr(widget, "tag_add"):
+            root.after_idle(lambda: _remember_entry(widget))
+
+        def undo_text(event):
+            if not event or not event.widget:
+                return "break"
+            widget = event.widget
+            try:
+                if _is_text(widget):
+                    widget.edit_undo()
+                else:
+                    _remember_entry(widget)
+                    history = getattr(widget, "_qr_undo_history", [])
+                    if len(history) > 1:
+                        history.pop()
+                        previous = history[-1]
+                        widget.delete(0, "end")
+                        widget.insert(0, previous)
+                        widget.icursor("end")
+            except Exception:
+                pass
+            return "break"
+
+        def select_all(event):
+            if not event or not event.widget:
+                return "break"
+            widget = event.widget
+            if _is_text(widget):
                 widget.tag_add("sel", "1.0", "end-1c")
+                widget.mark_set("insert", "end-1c")
+            else:
+                widget.selection_range(0, "end")
+                widget.icursor("end")
+            return "break"
+
+        def select_all_on_double_click(event):
+            # Run after Tk's built-in double-click handler so its word selection
+            # cannot replace our full-field selection.
+            root.after_idle(lambda: select_all(DummyEvent(event.widget)))
             return "break"
 
         def copy_text(event):
             if not event or not event.widget: return "break"
             widget = event.widget
             try:
-                text = ""
-                if hasattr(widget, "index") and hasattr(widget, "get"):
-                    # Entry widget
-                    try:
-                        first = widget.index("sel.first")
-                        last = widget.index("sel.last")
-                        text = widget.get()[first:last]
-                    except Exception:
-                        pass
-                elif hasattr(widget, "get"):
-                    # Text widget
-                    try:
-                        text = widget.get("sel.first", "sel.last")
-                    except Exception:
-                        pass
-                if text:
-                    widget.clipboard_clear()
-                    widget.clipboard_append(text)
+                if _is_text(widget):
+                    text = widget.get("sel.first", "sel.last")
+                else:
+                    first = widget.index("sel.first")
+                    last = widget.index("sel.last")
+                    text = widget.get()[first:last]
+                widget.clipboard_clear()
+                widget.clipboard_append(text)
             except Exception:
-                widget.event_generate("<<Copy>>")
+                pass
             return "break"
 
         def cut_text(event):
             if not event or not event.widget: return "break"
             widget = event.widget
+            _remember_entry(widget)
+            copy_text(event)
             try:
-                copy_text(event)
-                try:
-                    widget.delete("sel.first", "sel.last")
-                except Exception:
-                    pass
+                widget.delete("sel.first", "sel.last")
             except Exception:
-                widget.event_generate("<<Cut>>")
+                pass
             return "break"
 
         def paste_text(event):
             if not event or not event.widget: return "break"
             widget = event.widget
+            _remember_entry(widget)
             try:
                 text = widget.clipboard_get()
-                if text:
-                    try:
-                        widget.delete("sel.first", "sel.last")
-                    except Exception:
-                        pass
-                    widget.insert("insert", text)
+                try:
+                    widget.delete("sel.first", "sel.last")
+                except Exception:
+                    pass
+                widget.insert("insert", text)
             except Exception:
-                widget.event_generate("<<Paste>>")
+                pass
             return "break"
 
-        # Bind to Entry and Text classes globally (English Layout)
-        root.bind_class("Entry", "<Command-c>", copy_text)
-        root.bind_class("Entry", "<Command-v>", paste_text)
-        root.bind_class("Entry", "<Command-x>", cut_text)
-        root.bind_class("Entry", "<Command-a>", select_all)
-        
-        root.bind_class("Text", "<Command-c>", copy_text)
-        root.bind_class("Text", "<Command-v>", paste_text)
-        root.bind_class("Text", "<Command-x>", cut_text)
-        root.bind_class("Text", "<Command-a>", select_all)
+        # macOS virtual key codes identify the physical A/X/C/V keys and do not
+        # change when the active keyboard language/layout changes.
+        command_keycodes = {
+            0: select_all,   # A
+            6: undo_text,    # Z
+            7: cut_text,     # X
+            8: copy_text,    # C
+            9: paste_text,   # V
+        }
+        command_keysyms = {
+            "a": select_all,
+            "z": undo_text,
+            "x": cut_text,
+            "c": copy_text,
+            "v": paste_text,
+            "Thai_fofan": select_all,
+            "Thai_phophung": undo_text,
+            "Thai_popla": cut_text,
+            "Thai_saraae": copy_text,
+            "Thai_oang": paste_text,
+        }
 
-        # Bind to Entry and Text classes globally (Thai Layout)
-        try:
-            root.bind_class("Entry", "<Command-Thai_saraae>", copy_text)
-            root.bind_class("Entry", "<Command-Thai_oang>", paste_text)
-            root.bind_class("Entry", "<Command-Thai_popla>", cut_text)
-            root.bind_class("Entry", "<Command-Thai_fofan>", select_all)
-            
-            root.bind_class("Text", "<Command-Thai_saraae>", copy_text)
-            root.bind_class("Text", "<Command-Thai_oang>", paste_text)
-            root.bind_class("Text", "<Command-Thai_popla>", cut_text)
-            root.bind_class("Text", "<Command-Thai_fofan>", select_all)
-        except Exception:
-            pass
+        def command_by_physical_key(event):
+            handler = command_keycodes.get(event.keycode)
+            if handler is None:
+                handler = command_keysyms.get(event.keysym)
+            if handler:
+                return handler(event)
+
+        for widget_class in ("Entry", "Text"):
+            root.bind_class(widget_class, "<Command-KeyPress>", command_by_physical_key)
+            root.bind_class(widget_class, "<Double-Button-1>", select_all_on_double_click)
+        root.bind_class("Entry", "<KeyPress>", remember_entry_after_key, add="+")
+        root.bind_class("Entry", "<FocusIn>", lambda event: _remember_entry(event.widget), add="+")
+
+        # Tk on some macOS/input-method combinations reports the translated
+        # Thai keysym but does not preserve the usual macOS virtual keycode.
+        # Bind those physical Kedmanee keys at the application level as well.
+        # Using bind_all also covers CustomTkinter's internal Entry/Text widgets.
+        layout_shortcuts = {
+            "<Command-KeyPress-Thai_fofan>": select_all,   # Cmd+A
+            "<Command-KeyPress-Thai_phophung>": undo_text, # Cmd+Z
+            "<Command-KeyPress-Thai_popla>": cut_text,     # Cmd+X
+            "<Command-KeyPress-Thai_saraae>": copy_text,   # Cmd+C
+            "<Command-KeyPress-Thai_oang>": paste_text,    # Cmd+V
+        }
+        for sequence, handler in layout_shortcuts.items():
+            root.bind_all(sequence, handler, add="+")
 
         # Create macOS Application Menu
         try:
             menubar = Menu(root)
             edit_menu = Menu(menubar, tearoff=0)
-            
+
+            edit_menu.add_command(label="Undo", accelerator="Cmd+Z", command=lambda: undo_text(DummyEvent(root.focus_get())))
+            edit_menu.add_separator()
             edit_menu.add_command(label="Cut", accelerator="Cmd+X", command=lambda: cut_text(DummyEvent(root.focus_get())))
             edit_menu.add_command(label="Copy", accelerator="Cmd+C", command=lambda: copy_text(DummyEvent(root.focus_get())))
             edit_menu.add_command(label="Paste", accelerator="Cmd+V", command=lambda: paste_text(DummyEvent(root.focus_get())))
@@ -410,9 +497,9 @@ class AppWindow(ctk.CTk):
         super().__init__()
         setup_macos_shortcuts(self)
         self.set_window_icon()
-        self.title("QR Generator Pro")
-        self.geometry("1020x700")
-        self.minsize(880, 600)
+        self.title("QR Studio")
+        self.geometry("1120x760")
+        self.minsize(960, 680)
         self.configure(fg_color=BG)
 
     def set_window_icon(self):
@@ -428,13 +515,17 @@ class AppWindow(ctk.CTk):
             except Exception:
                 pass
 
+        dev_root = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
+        bundle_root = getattr(sys, "_MEIPASS", "")
+        if sys.platform == "darwin":
+            icon_name = "icon_macos.png"
+        elif sys.platform == "win32":
+            icon_name = "icon.ico"
+        else:
+            icon_name = "icon.png"
         icon_paths = [
-            # dev path — prefer .ico on Windows, .png elsewhere
-            os.path.join(os.path.dirname(__file__), "..", "icon.ico"),
-            os.path.join(os.path.dirname(__file__), "..", "icon.png"),
-            # PyInstaller bundled path
-            os.path.join(getattr(sys, "_MEIPASS", ""), "icon.ico"),
-            os.path.join(getattr(sys, "_MEIPASS", ""), "icon.png"),
+            os.path.join(dev_root, icon_name),
+            os.path.join(bundle_root, icon_name),
         ]
         for p in icon_paths:
             p = os.path.normpath(p)
@@ -476,22 +567,22 @@ class AppWindow(ctk.CTk):
 
         # Create Layout
         self.create_body = ctk.CTkFrame(self, fg_color=BG)
-        self.create_body.grid_columnconfigure(0, weight=5)
-        self.create_body.grid_columnconfigure(1, weight=4)
+        self.create_body.grid_columnconfigure(0, weight=4, minsize=390)
+        self.create_body.grid_columnconfigure(1, weight=6, minsize=490)
         self.create_body.grid_rowconfigure(0, weight=1)
 
         self.workspace = WorkspacePanel(self.create_body, app_controller=self)
-        self.workspace.grid(row=0, column=0, sticky="nsew", padx=(0, 12))
+        self.workspace.grid(row=0, column=0, sticky="nsew", padx=(0, 14))
 
         self.preview = PreviewPanel(self.create_body, app_controller=self)
-        self.preview.grid(row=0, column=1, sticky="nsew", padx=(12, 0))
+        self.preview.grid(row=0, column=1, sticky="nsew", padx=(14, 0))
 
         self._do_initial_generate()
         self.after(200, lambda: self.request_generate(debounce=False))
 
     def _do_initial_generate(self):
         """Show the create body on startup."""
-        self.create_body.grid(row=1, column=0, sticky="nsew", padx=28, pady=20)
+        self.create_body.grid(row=1, column=0, sticky="nsew", padx=32, pady=(24, 28))
 
     def request_generate(self, *args, debounce=True):
         if hasattr(self, "_generate_job") and self._generate_job is not None:
