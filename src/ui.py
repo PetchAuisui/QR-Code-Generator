@@ -300,53 +300,51 @@ def setup_macos_shortcuts(root):
             def __init__(self, widget):
                 self.widget = widget
 
+        def _is_text(widget):
+            return widget.winfo_class() == "Text"
+
         def select_all(event):
-            if not event or not event.widget: return "break"
+            if not event or not event.widget:
+                return "break"
             widget = event.widget
-            if hasattr(widget, "select_range"):
-                widget.select_range(0, "end")
-                widget.icursor("end")
-            elif hasattr(widget, "tag_add"):
+            if _is_text(widget):
                 widget.tag_add("sel", "1.0", "end-1c")
+                widget.mark_set("insert", "end-1c")
+            else:
+                widget.selection_range(0, "end")
+                widget.icursor("end")
+            return "break"
+
+        def select_all_on_double_click(event):
+            # Run after Tk's built-in double-click handler so its word selection
+            # cannot replace our full-field selection.
+            root.after_idle(lambda: select_all(DummyEvent(event.widget)))
             return "break"
 
         def copy_text(event):
             if not event or not event.widget: return "break"
             widget = event.widget
             try:
-                text = ""
-                if hasattr(widget, "index") and hasattr(widget, "get"):
-                    # Entry widget
-                    try:
-                        first = widget.index("sel.first")
-                        last = widget.index("sel.last")
-                        text = widget.get()[first:last]
-                    except Exception:
-                        pass
-                elif hasattr(widget, "get"):
-                    # Text widget
-                    try:
-                        text = widget.get("sel.first", "sel.last")
-                    except Exception:
-                        pass
-                if text:
-                    widget.clipboard_clear()
-                    widget.clipboard_append(text)
+                if _is_text(widget):
+                    text = widget.get("sel.first", "sel.last")
+                else:
+                    first = widget.index("sel.first")
+                    last = widget.index("sel.last")
+                    text = widget.get()[first:last]
+                widget.clipboard_clear()
+                widget.clipboard_append(text)
             except Exception:
-                widget.event_generate("<<Copy>>")
+                pass
             return "break"
 
         def cut_text(event):
             if not event or not event.widget: return "break"
             widget = event.widget
+            copy_text(event)
             try:
-                copy_text(event)
-                try:
-                    widget.delete("sel.first", "sel.last")
-                except Exception:
-                    pass
+                widget.delete("sel.first", "sel.last")
             except Exception:
-                widget.event_generate("<<Cut>>")
+                pass
             return "break"
 
         def paste_text(event):
@@ -354,40 +352,57 @@ def setup_macos_shortcuts(root):
             widget = event.widget
             try:
                 text = widget.clipboard_get()
-                if text:
-                    try:
-                        widget.delete("sel.first", "sel.last")
-                    except Exception:
-                        pass
-                    widget.insert("insert", text)
+                try:
+                    widget.delete("sel.first", "sel.last")
+                except Exception:
+                    pass
+                widget.insert("insert", text)
             except Exception:
-                widget.event_generate("<<Paste>>")
+                pass
             return "break"
 
-        # Bind to Entry and Text classes globally (English Layout)
-        root.bind_class("Entry", "<Command-c>", copy_text)
-        root.bind_class("Entry", "<Command-v>", paste_text)
-        root.bind_class("Entry", "<Command-x>", cut_text)
-        root.bind_class("Entry", "<Command-a>", select_all)
-        
-        root.bind_class("Text", "<Command-c>", copy_text)
-        root.bind_class("Text", "<Command-v>", paste_text)
-        root.bind_class("Text", "<Command-x>", cut_text)
-        root.bind_class("Text", "<Command-a>", select_all)
+        # macOS virtual key codes identify the physical A/X/C/V keys and do not
+        # change when the active keyboard language/layout changes.
+        command_keycodes = {
+            0: select_all,   # A
+            7: cut_text,     # X
+            8: copy_text,    # C
+            9: paste_text,   # V
+        }
+        command_keysyms = {
+            "a": select_all,
+            "x": cut_text,
+            "c": copy_text,
+            "v": paste_text,
+            "Thai_fofan": select_all,
+            "Thai_popla": cut_text,
+            "Thai_saraae": copy_text,
+            "Thai_oang": paste_text,
+        }
 
-        # Bind to Entry and Text classes globally (Thai Layout)
-        try:
-            root.bind_class("Entry", "<Command-Thai_saraae>", copy_text)
-            root.bind_class("Entry", "<Command-Thai_oang>", paste_text)
-            root.bind_class("Entry", "<Command-Thai_popla>", cut_text)
-            root.bind_class("Entry", "<Command-Thai_fofan>", select_all)
-            
-            root.bind_class("Text", "<Command-Thai_saraae>", copy_text)
-            root.bind_class("Text", "<Command-Thai_oang>", paste_text)
-            root.bind_class("Text", "<Command-Thai_popla>", cut_text)
-            root.bind_class("Text", "<Command-Thai_fofan>", select_all)
-        except Exception:
-            pass
+        def command_by_physical_key(event):
+            handler = command_keycodes.get(event.keycode)
+            if handler is None:
+                handler = command_keysyms.get(event.keysym)
+            if handler:
+                return handler(event)
+
+        for widget_class in ("Entry", "Text"):
+            root.bind_class(widget_class, "<Command-KeyPress>", command_by_physical_key)
+            root.bind_class(widget_class, "<Double-Button-1>", select_all_on_double_click)
+
+        # Tk on some macOS/input-method combinations reports the translated
+        # Thai keysym but does not preserve the usual macOS virtual keycode.
+        # Bind those physical Kedmanee keys at the application level as well.
+        # Using bind_all also covers CustomTkinter's internal Entry/Text widgets.
+        layout_shortcuts = {
+            "<Command-KeyPress-Thai_fofan>": select_all,   # Cmd+A
+            "<Command-KeyPress-Thai_popla>": cut_text,     # Cmd+X
+            "<Command-KeyPress-Thai_saraae>": copy_text,   # Cmd+C
+            "<Command-KeyPress-Thai_oang>": paste_text,    # Cmd+V
+        }
+        for sequence, handler in layout_shortcuts.items():
+            root.bind_all(sequence, handler, add="+")
 
         # Create macOS Application Menu
         try:
