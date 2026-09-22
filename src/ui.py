@@ -317,116 +317,118 @@ class PreviewPanel(ctk.CTkFrame):
         messagebox.showerror("Error", err_msg)
         self.qr_display.configure(image="", text="Error generating QR code")
 
-def setup_macos_shortcuts(root):
-    if sys.platform == "darwin":
-        from tkinter import Menu
+def setup_keyboard_shortcuts(root):
+    from tkinter import Menu
 
-        class DummyEvent:
-            def __init__(self, widget):
-                self.widget = widget
+    class DummyEvent:
+        def __init__(self, widget):
+            self.widget = widget
 
-        def _is_text(widget):
-            return widget.winfo_class() == "Text"
+    def _is_text(widget):
+        return widget.winfo_class() == "Text"
 
-        def _remember_entry(widget):
-            if _is_text(widget):
-                return
-            value = widget.get()
-            history = getattr(widget, "_qr_undo_history", None)
-            if history is None:
-                history = []
-                widget._qr_undo_history = history
-            if not history or history[-1] != value:
-                history.append(value)
-                if len(history) > 200:
-                    del history[0]
+    def _remember_entry(widget):
+        if _is_text(widget):
+            return
+        value = widget.get()
+        history = getattr(widget, "_qr_undo_history", None)
+        if history is None:
+            history = []
+            widget._qr_undo_history = history
+        if not history or history[-1] != value:
+            history.append(value)
+            if len(history) > 200:
+                del history[0]
 
-        def remember_entry_after_key(event):
-            widget = event.widget
-            root.after_idle(lambda: _remember_entry(widget))
+    def remember_entry_after_key(event):
+        widget = event.widget
+        root.after_idle(lambda: _remember_entry(widget))
 
-        def undo_text(event):
-            if not event or not event.widget:
-                return "break"
-            widget = event.widget
-            try:
-                if _is_text(widget):
-                    widget.edit_undo()
-                else:
-                    _remember_entry(widget)
-                    history = getattr(widget, "_qr_undo_history", [])
-                    if len(history) > 1:
-                        history.pop()
-                        previous = history[-1]
-                        widget.delete(0, "end")
-                        widget.insert(0, previous)
-                        widget.icursor("end")
-            except Exception:
-                pass
+    def undo_text(event):
+        if not event or not event.widget:
             return "break"
+        widget = event.widget
+        try:
+            if _is_text(widget):
+                widget.edit_undo()
+            else:
+                _remember_entry(widget)
+                history = getattr(widget, "_qr_undo_history", [])
+                if len(history) > 1:
+                    history.pop()
+                    previous = history[-1]
+                    widget.delete(0, "end")
+                    widget.insert(0, previous)
+                    widget.icursor("end")
+        except Exception:
+            pass
+        return "break"
 
-        def select_all(event):
-            if not event or not event.widget:
-                return "break"
-            widget = event.widget
+    def select_all(event):
+        if not event or not event.widget:
+            return "break"
+        widget = event.widget
+        try:
             if _is_text(widget):
                 widget.tag_add("sel", "1.0", "end-1c")
                 widget.mark_set("insert", "end-1c")
             else:
                 widget.selection_range(0, "end")
                 widget.icursor("end")
-            return "break"
+        except Exception:
+            pass
+        return "break"
 
-        def select_all_on_double_click(event):
-            # Run after Tk's built-in double-click handler so its word selection
-            # cannot replace our full-field selection.
-            root.after_idle(lambda: select_all(DummyEvent(event.widget)))
-            return "break"
+    def select_all_on_double_click(event):
+        root.after_idle(lambda: select_all(DummyEvent(event.widget)))
+        return "break"
 
-        def copy_text(event):
-            if not event or not event.widget: return "break"
-            widget = event.widget
-            try:
-                if _is_text(widget):
-                    text = widget.get("sel.first", "sel.last")
-                else:
-                    first = widget.index("sel.first")
-                    last = widget.index("sel.last")
-                    text = widget.get()[first:last]
-                widget.clipboard_clear()
-                widget.clipboard_append(text)
-            except Exception:
-                pass
+    def copy_text(event):
+        if not event or not event.widget:
             return "break"
+        widget = event.widget
+        try:
+            if _is_text(widget):
+                text = widget.get("sel.first", "sel.last")
+            else:
+                first = widget.index("sel.first")
+                last = widget.index("sel.last")
+                text = widget.get()[first:last]
+            widget.clipboard_clear()
+            widget.clipboard_append(text)
+        except Exception:
+            pass
+        return "break"
 
-        def cut_text(event):
-            if not event or not event.widget: return "break"
-            widget = event.widget
-            _remember_entry(widget)
-            copy_text(event)
+    def cut_text(event):
+        if not event or not event.widget:
+            return "break"
+        widget = event.widget
+        _remember_entry(widget)
+        copy_text(event)
+        try:
+            widget.delete("sel.first", "sel.last")
+        except Exception:
+            pass
+        return "break"
+
+    def paste_text(event):
+        if not event or not event.widget:
+            return "break"
+        widget = event.widget
+        _remember_entry(widget)
+        try:
+            text = widget.clipboard_get()
             try:
                 widget.delete("sel.first", "sel.last")
             except Exception:
                 pass
-            return "break"
+            widget.insert("insert", text)
+        except Exception:
+            pass
+        return "break"
 
-        def paste_text(event):
-            if not event or not event.widget: return "break"
-            widget = event.widget
-            _remember_entry(widget)
-            try:
-                text = widget.clipboard_get()
-                try:
-                    widget.delete("sel.first", "sel.last")
-                except Exception:
-                    pass
-                widget.insert("insert", text)
-            except Exception:
-                pass
-            return "break"
-
-        # macOS virtual key codes identify the physical A/X/C/V keys and do not
-        # change when the active keyboard language/layout changes.
+    if sys.platform == "darwin":
         command_keycodes = {
             0: select_all,   # A
             6: undo_text,    # Z
@@ -434,47 +436,61 @@ def setup_macos_shortcuts(root):
             8: copy_text,    # C
             9: paste_text,   # V
         }
-        command_keysyms = {
-            "a": select_all,
-            "z": undo_text,
-            "x": cut_text,
-            "c": copy_text,
-            "v": paste_text,
-            "Thai_fofan": select_all,
-            "Thai_phophung": undo_text,
-            "Thai_popla": cut_text,
-            "Thai_saraae": copy_text,
-            "Thai_oang": paste_text,
+        mod_seq = "<Command-KeyPress>"
+    else:
+        command_keycodes = {
+            65: select_all,  # A / ฟ
+            90: undo_text,   # Z / ผ
+            88: cut_text,    # X / ป
+            67: copy_text,   # C / แ
+            86: paste_text,  # V / อ
         }
+        mod_seq = "<Control-KeyPress>"
 
-        def command_by_physical_key(event):
-            handler = command_keycodes.get(event.keycode)
-            if handler is None:
-                handler = command_keysyms.get(event.keysym)
-            if handler:
-                return handler(event)
+    command_keysyms = {
+        "a": select_all,
+        "A": select_all,
+        "z": undo_text,
+        "Z": undo_text,
+        "x": cut_text,
+        "X": cut_text,
+        "c": copy_text,
+        "C": copy_text,
+        "v": paste_text,
+        "V": paste_text,
+        "Thai_fofan": select_all,     # ฟ (A)
+        "Thai_phophung": undo_text,   # ผ (Z)
+        "Thai_popla": cut_text,       # ป (X)
+        "Thai_saraae": copy_text,     # แ (C)
+        "Thai_oang": paste_text,      # อ (V)
+    }
 
-        for widget_class in ("Entry", "Text"):
-            root.bind_class(widget_class, "<Command-KeyPress>", command_by_physical_key)
-            root.bind_class(widget_class, "<Double-Button-1>", select_all_on_double_click)
-        root.bind_class("Entry", "<KeyPress>", remember_entry_after_key, add="+")
-        root.bind_class("Entry", "<FocusIn>", lambda event: _remember_entry(event.widget), add="+")
+    def command_by_physical_key(event):
+        handler = command_keycodes.get(event.keycode)
+        if handler is None:
+            handler = command_keysyms.get(event.keysym)
+        if handler:
+            return handler(event)
 
-        # Tk on some macOS/input-method combinations reports the translated
-        # Thai keysym but does not preserve the usual macOS virtual keycode.
-        # Bind those physical Kedmanee keys at the application level as well.
-        # Using bind_all also covers CustomTkinter's internal Entry/Text widgets.
-        layout_shortcuts = {
-            "<Command-KeyPress-Thai_fofan>": select_all,   # Cmd+A
-            "<Command-KeyPress-Thai_phophung>": undo_text, # Cmd+Z
-            "<Command-KeyPress-Thai_popla>": cut_text,     # Cmd+X
-            "<Command-KeyPress-Thai_saraae>": copy_text,   # Cmd+C
-            "<Command-KeyPress-Thai_oang>": paste_text,    # Cmd+V
-        }
-        for sequence, handler in layout_shortcuts.items():
-            root.bind_all(sequence, handler, add="+")
+    for widget_class in ("Entry", "Text"):
+        root.bind_class(widget_class, mod_seq, command_by_physical_key)
+        root.bind_class(widget_class, "<Double-Button-1>", select_all_on_double_click)
+    root.bind_class("Entry", "<KeyPress>", remember_entry_after_key, add="+")
+    root.bind_class("Entry", "<FocusIn>", lambda event: _remember_entry(event.widget), add="+")
 
-        # Create macOS Application Menu
+    # Global bindings for Thai layout key combinations
+    mod_prefix = "Command" if sys.platform == "darwin" else "Control"
+    layout_shortcuts = {
+        f"<{mod_prefix}-KeyPress-Thai_fofan>": select_all,
+        f"<{mod_prefix}-KeyPress-Thai_phophung>": undo_text,
+        f"<{mod_prefix}-KeyPress-Thai_popla>": cut_text,
+        f"<{mod_prefix}-KeyPress-Thai_saraae>": copy_text,
+        f"<{mod_prefix}-KeyPress-Thai_oang>": paste_text,
+    }
+    for sequence, handler in layout_shortcuts.items():
+        root.bind_all(sequence, handler, add="+")
+
+    if sys.platform == "darwin":
         try:
             menubar = Menu(root)
             edit_menu = Menu(menubar, tearoff=0)
@@ -485,7 +501,7 @@ def setup_macos_shortcuts(root):
             edit_menu.add_command(label="Copy", accelerator="Cmd+C", command=lambda: copy_text(DummyEvent(root.focus_get())))
             edit_menu.add_command(label="Paste", accelerator="Cmd+V", command=lambda: paste_text(DummyEvent(root.focus_get())))
             edit_menu.add_command(label="Select All", accelerator="Cmd+A", command=lambda: select_all(DummyEvent(root.focus_get())))
-            
+
             menubar.add_cascade(label="Edit", menu=edit_menu)
             root.config(menu=menubar)
         except Exception:
@@ -495,7 +511,7 @@ def setup_macos_shortcuts(root):
 class AppWindow(ctk.CTk):
     def __init__(self):
         super().__init__()
-        setup_macos_shortcuts(self)
+        setup_keyboard_shortcuts(self)
         self.set_window_icon()
         self.title("QR Studio")
         self.geometry("1120x760")
