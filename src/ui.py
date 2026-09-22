@@ -488,7 +488,10 @@ def setup_keyboard_shortcuts(root):
         f"<{mod_prefix}-KeyPress-Thai_oang>": paste_text,
     }
     for sequence, handler in layout_shortcuts.items():
-        root.bind_all(sequence, handler, add="+")
+        try:
+            root.bind_all(sequence, handler, add="+")
+        except Exception:
+            pass
 
     if sys.platform == "darwin":
         try:
